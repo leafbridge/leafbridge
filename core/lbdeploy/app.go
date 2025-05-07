@@ -3,10 +3,6 @@ package lbdeploy
 import (
 	"fmt"
 	"strings"
-
-	"github.com/gentlemanautomaton/winapp/appcode"
-	"github.com/gentlemanautomaton/winapp/unpackaged"
-	"github.com/gentlemanautomaton/winapp/unpackaged/appscope"
 )
 
 // AppMap holds a set of applications mapped by their identifiers.
@@ -47,11 +43,18 @@ func (list AppList) String() string {
 // AppID is a unique identifier for an application within LeafBridge.
 type AppID string
 
+// AppArchitecture identifies the processor architecture targeted by
+// application code.
+type AppArchitecture string
+
+// AppScope identifies the scope of an application's installation.
+type AppScope string
+
 // ProductCode is an application's product code that uniquely identifies
 // it to the operating system.
-type ProductCode = unpackaged.AppID
+type ProductCode string
 
-// Application hold identifying information for an application.
+// Application holds identifying information for an application.
 //
 // If it defines an architecture, scope and unpackaged app ID, these will be
 // used to determine if the application is installed in the Windows app
@@ -60,11 +63,11 @@ type ProductCode = unpackaged.AppID
 // Alternatively, a condition may be specified that determines whether the
 // application is installed.
 type Application struct {
-	Name         string               `json:"name"`
-	Architecture appcode.Architecture `json:"architecture,omitempty"`
-	Scope        appscope.Scope       `json:"scope,omitempty"`
-	ProductCode  ProductCode          `json:"product-code,omitempty"`
-	Detection    AppDetection         `json:"detection,omitempty"`
+	Name         string          `json:"name"`
+	Architecture AppArchitecture `json:"architecture,omitempty"`
+	Scope        AppScope        `json:"scope,omitempty"`
+	ProductCode  ProductCode     `json:"product-code,omitempty"`
+	Detection    AppDetection    `json:"detection,omitempty"`
 }
 
 // AppDetection describes how to detect the presence of an installed

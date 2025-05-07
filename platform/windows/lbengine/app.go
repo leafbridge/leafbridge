@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gentlemanautomaton/winapp/appcode"
+	"github.com/gentlemanautomaton/winapp/unpackaged"
 	"github.com/gentlemanautomaton/winapp/unpackaged/appregistry"
+	"github.com/gentlemanautomaton/winapp/unpackaged/appscope"
 	"github.com/leafbridge/leafbridge/core/datatype"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
 	"github.com/leafbridge/leafbridge/core/lbvalue"
@@ -44,13 +47,13 @@ func (engine AppEngine) IsInstalled(app lbdeploy.AppID) (bool, error) {
 
 	// Use the application registry that matches the application's
 	// architecture (x64 or x86) and scope (machine or user).
-	view, err := appregistry.ViewFor(definition.Architecture, definition.Scope)
+	view, err := appregistry.ViewFor(appcode.Architecture(definition.Architecture), appscope.Scope(definition.Scope))
 	if err != nil {
 		return false, err
 	}
 
 	// Look for the application in the registry.
-	return view.Contains(definition.ProductCode)
+	return view.Contains(unpackaged.AppID(definition.ProductCode))
 }
 
 // Version returns the version number of the application if it is installed
@@ -94,13 +97,13 @@ func (engine AppEngine) Version(app lbdeploy.AppID) (datatype.Version, error) {
 
 	// Use the application registry that matches the application's
 	// architecture (x64 or x86) and scope (machine or user).
-	view, err := appregistry.ViewFor(definition.Architecture, definition.Scope)
+	view, err := appregistry.ViewFor(appcode.Architecture(definition.Architecture), appscope.Scope(definition.Scope))
 	if err != nil {
 		return "", err
 	}
 
 	// Retrieve the properties of the app from the registry.
-	properties, err := view.Get(definition.ProductCode)
+	properties, err := view.Get(unpackaged.AppID(definition.ProductCode))
 	if err != nil {
 		return "", err
 	}
