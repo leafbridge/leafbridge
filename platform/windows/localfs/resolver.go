@@ -16,8 +16,8 @@ type Resolver struct {
 }
 
 // NewResolver returns a new resolver for the given file system resources.
-func NewResolver(fs lbdeploy.FileSystemResources) Resolver {
-	return Resolver{fs: fs}
+func NewResolver(resources lbdeploy.FileSystemResources) Resolver {
+	return Resolver{fs: resources}
 }
 
 // ResolveKnownFolder looks for a known folder with the given directory

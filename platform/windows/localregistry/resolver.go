@@ -15,8 +15,8 @@ type Resolver struct {
 }
 
 // NewResolver returns a new resolver for the given registry resources.
-func NewResolver(reg lbdeploy.RegistryResources) Resolver {
-	return Resolver{reg: reg}
+func NewResolver(resources lbdeploy.RegistryResources) Resolver {
+	return Resolver{reg: resources}
 }
 
 // ResolveRoot looks for a well-known registry root with the given registry
