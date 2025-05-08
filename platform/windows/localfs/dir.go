@@ -1,6 +1,7 @@
 package localfs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -15,17 +16,16 @@ type Dir struct {
 
 // OpenDir attempts to open the directory identified by the given file reference.
 func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
-	// Retrieve the known folder path, which is our starting point.
-	knownFolderPath, err := ref.Root.Path()
-	if err != nil {
-		return Dir{}, err
+	// Examine the known folder's path, which is our starting point.
+	if ref.Root.Path == "" {
+		return Dir{}, errors.New("the directory reference has a root with an empty path")
 	}
 
 	// Start to build up the path of the directory.
-	path := knownFolderPath
+	path := ref.Root.Path
 
 	// Open the known folder as our first root directory.
-	root, err := os.OpenRoot(knownFolderPath)
+	root, err := os.OpenRoot(ref.Root.Path)
 	if err != nil {
 		return Dir{}, err
 	}

@@ -27,23 +27,26 @@ type fileEngine struct {
 
 // CopyFile performs a file copy operation.
 func (engine *fileEngine) CopyFile(ctx context.Context) error {
+	// Prepare a local file system resolver.
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+
 	// Find the relevant source file within the deployment.
 	sourceFileID := engine.action.Definition.SourceFile
-	sourceFileRef, err := engine.deployment.Resources.FileSystem.ResolveFile(sourceFileID)
+	sourceFileRef, err := resolver.ResolveFile(sourceFileID)
 	if err != nil {
 		return fmt.Errorf("source file: %w", err)
 	}
 
 	// Find the relevant destination file within the deployment.
 	destFileID := engine.action.Definition.DestinationFile
-	destFileRef, err := engine.deployment.Resources.FileSystem.ResolveFile(destFileID)
+	destFileRef, err := resolver.ResolveFile(destFileID)
 	if err != nil {
 		return fmt.Errorf("destination file: %w", err)
 	}
 
-	// Make sure that the destination file is not in protected location.
-	if destFileRef.Root.Protected() {
-		return fmt.Errorf("the destination file is located in the \"%s\" root, which is protected", destFileRef.Root.ID())
+	// Make sure that the destination file is not in a protected location.
+	if destFileRef.Root.Protected {
+		return fmt.Errorf("the destination file is located in the \"%s\" root, which is protected", destFileRef.Root.ID)
 	}
 
 	// Record the time that the file copy started.
@@ -154,16 +157,19 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 
 // DeleteFile performs a file delete operation.
 func (engine *fileEngine) DeleteFile(ctx context.Context) error {
+	// Prepare a local file system resolver.
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+
 	// Find the relevant file within the deployment.
 	fileID := engine.action.Definition.DestinationFile
-	fileRef, err := engine.deployment.Resources.FileSystem.ResolveFile(fileID)
+	fileRef, err := resolver.ResolveFile(fileID)
 	if err != nil {
 		return fmt.Errorf("file: %w", err)
 	}
 
-	// Make sure that the file is not in protected location.
-	if fileRef.Root.Protected() {
-		return fmt.Errorf("the file is located in the \"%s\" root, which is protected", fileRef.Root.ID())
+	// Make sure that the file is not in a protected location.
+	if fileRef.Root.Protected {
+		return fmt.Errorf("the file is located in the \"%s\" root, which is protected", fileRef.Root.ID)
 	}
 
 	// Record the time that the file deletion started.

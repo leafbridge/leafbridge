@@ -181,7 +181,8 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 				panic("unhandled condition type")
 			}
 		case lbdeploy.ConditionTypeDirectoryExists:
-			ref, err := engine.deployment.Resources.FileSystem.ResolveDirectory(lbdeploy.DirectoryResourceID(condition.Subject))
+			resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+			ref, err := resolver.ResolveDirectory(lbdeploy.DirectoryResourceID(condition.Subject))
 			if err != nil {
 				return false, conditionSelfError(id, condition, err)
 			}
@@ -195,7 +196,8 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			defer dir.Close()
 			return true, nil
 		case lbdeploy.ConditionTypeFileExists:
-			ref, err := engine.deployment.Resources.FileSystem.ResolveFile(lbdeploy.FileResourceID(condition.Subject))
+			resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+			ref, err := resolver.ResolveFile(lbdeploy.FileResourceID(condition.Subject))
 			if err != nil {
 				return false, conditionSelfError(id, condition, err)
 			}

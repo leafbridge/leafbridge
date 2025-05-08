@@ -43,9 +43,12 @@ type commandEngine struct {
 
 // InvokeStandard runs the command without a package affiliation.
 func (engine *commandEngine) InvokeStandard(ctx context.Context) error {
+	// Prepare a local file system resolver.
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+
 	// Get information about the executable file from the file system.
 	fileID := lbdeploy.FileResourceID(engine.command.Definition.Executable)
-	fileRef, err := engine.deployment.Resources.FileSystem.ResolveFile(fileID)
+	fileRef, err := resolver.ResolveFile(fileID)
 	if err != nil {
 		return fmt.Errorf("%s refers to an executable file \"%s\" that could not be resolved: %w", engine.cmdDesc(), fileID, err)
 	}
@@ -394,7 +397,8 @@ func (engine *commandEngine) workingDirectory() (path string, err error) {
 		return "", nil
 	}
 
-	dirRef, err := engine.deployment.Resources.FileSystem.ResolveDirectory(dirID)
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+	dirRef, err := resolver.ResolveDirectory(dirID)
 	if err != nil {
 		return "", err
 	}

@@ -405,113 +405,118 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	// Print directory resources.
-	if dirs := dep.Resources.FileSystem.Directories; len(dirs) > 0 {
-		// Sort the directory IDs for a deterministic order.
-		ids := slices.Collect(maps.Keys(dirs))
-		slices.Sort(ids)
+	{
+		// Prepare a local file system resolver.
+		resolver := localfs.NewResolver(dep.Resources.FileSystem)
 
-		// Print information about each file.
-		fmt.Printf("  Directories:\n")
-		for _, id := range ids {
-			func() {
-				fmt.Printf("    %s:\n", id)
+		// Print directory resources.
+		if dirs := dep.Resources.FileSystem.Directories; len(dirs) > 0 {
+			// Sort the directory IDs for a deterministic order.
+			ids := slices.Collect(maps.Keys(dirs))
+			slices.Sort(ids)
 
-				// Resolve the directory reference.
-				ref, err := dep.Resources.FileSystem.ResolveDirectory(id)
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
+			// Print information about each file.
+			fmt.Printf("  Directories:\n")
+			for _, id := range ids {
+				func() {
+					fmt.Printf("    %s:\n", id)
 
-				// Generate a file path.
-				path, err := ref.Path()
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
-
-				// Open the parent directory.
-				dir, err := localfs.OpenDir(ref)
-				if err != nil {
-					fmt.Printf("      Path:        %s\n", path)
-					if os.IsNotExist(err) {
-						fmt.Printf("      Status:      Missing\n")
-					} else {
-						fmt.Printf("      Status:      (%v)\n", err)
+					// Resolve the directory reference.
+					ref, err := resolver.ResolveDirectory(id)
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
 					}
-					return
-				}
-				defer dir.Close()
 
-				// Print the path and status.
-				fmt.Printf("      Path:        %s\n", dir.Path())
-				fmt.Printf("      Status:      Present\n")
-			}()
+					// Generate a file path.
+					path, err := ref.Path()
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
+					}
+
+					// Open the parent directory.
+					dir, err := localfs.OpenDir(ref)
+					if err != nil {
+						fmt.Printf("      Path:        %s\n", path)
+						if os.IsNotExist(err) {
+							fmt.Printf("      Status:      Missing\n")
+						} else {
+							fmt.Printf("      Status:      (%v)\n", err)
+						}
+						return
+					}
+					defer dir.Close()
+
+					// Print the path and status.
+					fmt.Printf("      Path:        %s\n", dir.Path())
+					fmt.Printf("      Status:      Present\n")
+				}()
+			}
 		}
-	}
 
-	// Print file resources.
-	if files := dep.Resources.FileSystem.Files; len(files) > 0 {
-		// Sort the file IDs for a deterministic order.
-		ids := slices.Collect(maps.Keys(files))
-		slices.Sort(ids)
+		// Print file resources.
+		if files := dep.Resources.FileSystem.Files; len(files) > 0 {
+			// Sort the file IDs for a deterministic order.
+			ids := slices.Collect(maps.Keys(files))
+			slices.Sort(ids)
 
-		// Print information about each file.
-		fmt.Printf("  Files:\n")
-		for _, id := range ids {
-			func() {
-				fmt.Printf("    %s:\n", id)
+			// Print information about each file.
+			fmt.Printf("  Files:\n")
+			for _, id := range ids {
+				func() {
+					fmt.Printf("    %s:\n", id)
 
-				// Resolve the file reference.
-				ref, err := dep.Resources.FileSystem.ResolveFile(id)
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
-
-				// Generate a file path.
-				path, err := ref.Path()
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
-				fmt.Printf("      Path:        %s\n", path)
-
-				// Attempt to open the parent directory.
-				dir, err := localfs.OpenDir(ref.Dir())
-				if err != nil {
-					if os.IsNotExist(err) {
-						fmt.Printf("      Status:      Missing\n")
-					} else {
-						fmt.Printf("      Status:      (%v)\n", err)
+					// Resolve the file reference.
+					ref, err := resolver.ResolveFile(id)
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
 					}
-					return
-				}
-				defer dir.Close()
 
-				// Stat the file path.
-				fi, err := dir.System().Stat(ref.FilePath)
-				if err != nil {
-					if os.IsNotExist(err) {
-						fmt.Printf("      Status:      Missing\n")
-					} else {
-						fmt.Printf("      Status:      (%v)\n", err)
+					// Generate a file path.
+					path, err := ref.Path()
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
 					}
-					return
-				}
+					fmt.Printf("      Path:        %s\n", path)
 
-				// Make sure it's a regular file.
-				if !fi.Mode().IsRegular() {
-					fmt.Printf("      Status:      Not A File\n")
-					return
-				}
+					// Attempt to open the parent directory.
+					dir, err := localfs.OpenDir(ref.Dir())
+					if err != nil {
+						if os.IsNotExist(err) {
+							fmt.Printf("      Status:      Missing\n")
+						} else {
+							fmt.Printf("      Status:      (%v)\n", err)
+						}
+						return
+					}
+					defer dir.Close()
 
-				// Report statistics.
-				fmt.Printf("      Status:      Present\n")
-				fmt.Printf("      Modified:    %s\n", fi.ModTime())
-				fmt.Printf("      Size:        %d bytes(s)\n", fi.Size())
-			}()
+					// Stat the file path.
+					fi, err := dir.System().Stat(ref.FilePath)
+					if err != nil {
+						if os.IsNotExist(err) {
+							fmt.Printf("      Status:      Missing\n")
+						} else {
+							fmt.Printf("      Status:      (%v)\n", err)
+						}
+						return
+					}
+
+					// Make sure it's a regular file.
+					if !fi.Mode().IsRegular() {
+						fmt.Printf("      Status:      Not A File\n")
+						return
+					}
+
+					// Report statistics.
+					fmt.Printf("      Status:      Present\n")
+					fmt.Printf("      Modified:    %s\n", fi.ModTime())
+					fmt.Printf("      Size:        %d bytes(s)\n", fi.Size())
+				}()
+			}
 		}
 	}
 
