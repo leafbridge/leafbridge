@@ -3,11 +3,9 @@ package lbdeploy
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 
 	"github.com/leafbridge/leafbridge/core/idset"
 	"github.com/leafbridge/leafbridge/core/lbvalue"
-	"golang.org/x/sys/windows/registry"
 )
 
 // RegistryResources describes resources accessed through the Windows
@@ -15,123 +13,6 @@ import (
 type RegistryResources struct {
 	Keys   RegistryKeyResourceMap   `json:"keys,omitempty"`
 	Values RegistryValueResourceMap `json:"values,omitempty"`
-}
-
-// ResolveKey resolves the requested registry key resource, returning a
-// registry key reference that can be mapped to a location in the Windows
-// registry.
-//
-// Successfully resolving a registry key resource means that its location
-// in the Windows registry can be determined, but it does not imply that the
-// key exists.
-//
-// If the registry key cannot be resolved, an error is returned.
-func (reg RegistryResources) ResolveKey(key RegistryKeyResourceID) (ref RegistryKeyRef, err error) {
-	// TODO: Consider making custom error types for resolution.
-
-	// Look up the registry key by its ID.
-	data, exists := reg.Keys[key]
-	if !exists {
-		if candidate, found := GetRegistryRoot(key); found {
-			return RegistryKeyRef{Root: candidate}, nil
-		}
-		return RegistryKeyRef{}, fmt.Errorf("the \"%s\" registry key is not defined in the deployment's resources", key)
-	}
-
-	// Make sure the registry key has a location.
-	if data.Location == "" {
-		return RegistryKeyRef{}, fmt.Errorf("the \"%s\" registry key does not have a location", key)
-	}
-
-	// Successful resolution must end in a known registry root.
-	var root RegistryRoot
-
-	// Keep track of the keys we traverse, which will ultimately form
-	// a lineage under the root.
-	var lineage []RegistryKeyResource
-
-	// Maintain a map of registry keys we've encountered, so that we can
-	// detect cycles.
-	seen := make(RegistryKeyResourceSet)
-
-	// Start with the registry key's location and traverse its ancestry,
-	// recording each parent along the way. Stop when we encounter a registry
-	// root.
-	lineage = append(lineage, data)
-	next := data.Location
-	for {
-		// Check for cycles.
-		if seen.Contains(next) {
-			return RegistryKeyRef{}, fmt.Errorf("failed to resolve the \"%s\" registry key: the \"%s\" parent key has a cyclic reference to itself in the deployment's registry resources", key, next)
-		}
-		seen.Add(next)
-
-		// Look for a registry key with the ID.
-		if parent, found := reg.Keys[next]; found {
-			lineage = append(lineage, parent)
-			if parent.Location == "" {
-				return RegistryKeyRef{}, fmt.Errorf("failed to resolve the \"%s\" registry key: the \"%s\" parent key does not have a location", key, next)
-			}
-			next = parent.Location
-			continue
-		}
-
-		// Look for a registry root with the ID.
-		if candidate, found := GetRegistryRoot(next); found {
-			root = candidate
-			break
-		}
-
-		// The location is not defined.
-		return RegistryKeyRef{}, fmt.Errorf("failed to resolve the \"%s\" registry key: the \"%s\" prent key is not defined in the deployment's resources", key, next)
-	}
-
-	// Reverse the order of the registry keys that were recorded, so they can
-	// easily be traversed from the root.
-	slices.Reverse(lineage)
-
-	return RegistryKeyRef{
-		Root:    root,
-		Lineage: lineage,
-	}, nil
-}
-
-// ResolveValue resolves the requested registry value resource, returning a
-// registry value reference that can be mapped to a location in the Windows
-// registry.
-//
-// Successfully resolving a registry value resource means that its location
-// in the Windows registry can be determined, but it does not imply that the
-// value exists.
-//
-// If the registry value cannot be resolved, an error is returned.
-func (reg RegistryResources) ResolveValue(value RegistryValueResourceID) (ref RegistryValueRef, err error) {
-	// TODO: Consider making custom error types for resolution.
-
-	// Look up the registry value by its ID.
-	data, exists := reg.Values[value]
-	if !exists {
-		return RegistryValueRef{}, fmt.Errorf("the \"%s\" registry value is not defined in the deployment's resources", value)
-	}
-
-	// Make sure the registry value has a key.
-	if data.Key == "" {
-		return RegistryValueRef{}, fmt.Errorf("the \"%s\" registry value does not have a key", value)
-	}
-
-	// Resolve the value's registry key.
-	key, err := reg.ResolveKey(data.Key)
-	if err != nil {
-		return RegistryValueRef{}, fmt.Errorf("failed to resolve the \"%s\" registry value: %w", value, err)
-	}
-
-	return RegistryValueRef{
-		Root:    key.Root,
-		Lineage: key.Lineage,
-		ID:      value,
-		Name:    data.Name,
-		Type:    data.Type,
-	}, nil
 }
 
 // RegistryKeyResourceMap holds a set of registry key resources mapped by
@@ -231,59 +112,65 @@ func (ref RegistryValueRef) Key() RegistryKeyRef {
 	}
 }
 
-// RegistryRootMap holds a set of registry roots mapped by their well-known
-// identifiers.
-type RegistryRootMap map[RegistryKeyResourceID]RegistryRoot
-
 // RegistryRoot is a root location within the Windows registry.
 type RegistryRoot struct {
-	id   RegistryKeyResourceID
-	key  registry.Key
-	path string
+	ID            RegistryKeyResourceID
+	PredefinedKey PredefinedRegistryKey
+	Path          string
 }
 
-// ID returns the resource ID of the registry root.
-func (root RegistryRoot) ID() RegistryKeyResourceID {
-	return root.id
-}
-
-// Key returns the predefined key used by the registry root.
-func (root RegistryRoot) Key() registry.Key {
-	return root.key
-}
-
-// Path retrieves the relative path to the root from its predefined key.
-func (root RegistryRoot) Path() (path string) {
-	return root.path
-}
-
-// AbsolutePath return the absolute path to the registry root on the
+// AbsolutePath returns the absolute path to the registry root on the
 // local system, including the predefined key.
 func (root RegistryRoot) AbsolutePath() (path string, err error) {
-	switch root.key {
-	case registry.LOCAL_MACHINE:
-		path = "HKEY_LOCAL_MACHINE"
+	path = root.PredefinedKey.String()
+	if root.Path != "" {
+		path = filepath.Join(path, root.Path)
+	}
+	return
+}
+
+// PredefinedRegistryKey identifies a predefined key within the Windows
+// registry.
+type PredefinedRegistryKey int
+
+// Predefined keys within the Windows registry that are recognized by
+// LeafBridge.
+const (
+	PredefinedKeyUnknown PredefinedRegistryKey = iota
+	PredefinedKeyLocalMachine
+)
+
+var predefinedRegistryKeyStrings = []string{
+	"HKEY_UNKNOWN",
+	"HKEY_LOCAL_MACHINE",
+}
+
+// String returns a string representation of the key in its canonical form,
+// such as HKEY_LOCAL_MACHINE.
+func (key PredefinedRegistryKey) String() string {
+	if key := int(key); key >= 0 && key < len(predefinedRegistryKeyStrings) {
+		return predefinedRegistryKeyStrings[key]
+	}
+	return fmt.Sprintf("<unknown registry key \"%d\">", key)
+}
+
+// UnmarshalText attempts to unmarshal the given text into key.
+func (key *PredefinedRegistryKey) UnmarshalText(b []byte) error {
+	switch string(b) {
+	case "HKEY_UNKNOWN":
+		*key = PredefinedKeyUnknown
+	case "HKEY_LOCAL_MACHINE":
+		*key = PredefinedKeyLocalMachine
 	default:
-		return "", fmt.Errorf("the \"%s\" registry root relies on an unsupported root key", root.id)
+		return fmt.Errorf("unrecognized or unsupported registry key: %s", b)
 	}
-	if root.path != "" {
-		path = filepath.Join(path, root.path)
+	return nil
+}
+
+// MarshalText marshals the key as text.
+func (key PredefinedRegistryKey) MarshalText() ([]byte, error) {
+	if key := int(key); key >= 0 && key < len(predefinedRegistryKeyStrings) {
+		return []byte(predefinedRegistryKeyStrings[key]), nil
 	}
-	return
-}
-
-// IsZero returns true if the registry root is undefined.
-func (root RegistryRoot) IsZero() bool {
-	return root.id == ""
-}
-
-// GetRegistryRoot looks for a well-known registry root with the given
-// resource ID. If one is found, it is returned and ok will be true.
-func GetRegistryRoot(id RegistryKeyResourceID) (root RegistryRoot, ok bool) {
-	root, ok = registryRoots[id]
-	return
-}
-
-var registryRoots = RegistryRootMap{
-	"software": RegistryRoot{id: "software", key: registry.LOCAL_MACHINE, path: "SOFTWARE"},
+	return nil, fmt.Errorf("unrecognized or unsupported registry key: %d", key)
 }

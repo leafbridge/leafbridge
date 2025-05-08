@@ -70,7 +70,8 @@ func (engine AppEngine) Version(app lbdeploy.AppID) (datatype.Version, error) {
 	// If a registry value that identifies the currently installed version has
 	// been supplied, return its value.
 	if definition.Detection.Version != "" {
-		ref, err := engine.deployment.Resources.Registry.ResolveValue(definition.Detection.Version)
+		resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+		ref, err := resolver.ResolveValue(definition.Detection.Version)
 		if err != nil {
 			return "", err
 		}

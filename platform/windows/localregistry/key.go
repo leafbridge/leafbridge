@@ -23,9 +23,10 @@ type Key struct {
 // OpenKey attempts to open the regisry key identified by the given registry
 // key reference.
 func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
-	// Make sure the root is valid.
-	if ref.Root.IsZero() {
-		return Key{}, errors.New("unable to open registry key: an empty root was provided in the key reference")
+	// Get the predefined key handle for the root and make sure it is valid.
+	predefinedKey, err := PredefinedKeyHandle(ref.Root.PredefinedKey)
+	if err != nil {
+		return Key{}, fmt.Errorf("unable to open registry key: %w", err)
 	}
 
 	// Start to build up the path of the key.
@@ -34,15 +35,15 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 		return Key{}, err
 	}
 
-	// Open the root's path relative to a predefined key. If the root does
+	// Open the root's path relative to the predefined key. If the root does
 	// not specify a path, this will return the predefined key.
-	key, err := registry.OpenKey(ref.Root.Key(), ref.Root.Path(), registry.QUERY_VALUE)
+	key, err := registry.OpenKey(predefinedKey, ref.Root.Path, registry.QUERY_VALUE)
 	if err != nil {
 		return Key{}, err
 	}
 
-	// Keep track of whether the key we return is predefined or not.
-	predefined := key == ref.Root.Key()
+	// Keep track of whether the key is predefined or not.
+	keyIsPredefined := key == predefinedKey
 
 	// Traverse subkeys, if present.
 	for _, next := range ref.Lineage {
@@ -65,9 +66,9 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 			err = errors.New("a registry key resource does not specify a name or path")
 		}
 
-		// Always close the parent key's registry handle, unless it's a
+		// Always close the parent key's registry handle, unless it was a
 		// predefined key.
-		if !predefined {
+		if !keyIsPredefined {
 			parent.Close()
 		}
 
@@ -77,14 +78,14 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 		}
 
 		// We've successfully traversed down from a predefined key.
-		predefined = false
+		keyIsPredefined = false
 	}
 
 	// Return the final registry key and its path.
 	return Key{
 		key:        key,
 		path:       path,
-		predefined: false,
+		predefined: keyIsPredefined,
 	}, nil
 }
 

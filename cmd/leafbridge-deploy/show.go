@@ -288,120 +288,125 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	// Print registry key resources.
-	if keys := dep.Resources.Registry.Keys; len(keys) > 0 {
-		// Sort the registry key IDs for a deterministic order.
-		ids := slices.Collect(maps.Keys(keys))
-		slices.Sort(ids)
+	{
+		// Prepare a local registry resolver.
+		resolver := localregistry.NewResolver(dep.Resources.Registry)
 
-		// Print information about each registry key.
-		fmt.Printf("  Registry Keys:\n")
-		for _, id := range ids {
-			func() {
-				fmt.Printf("    %s:\n", id)
+		// Print registry key resources.
+		if keys := dep.Resources.Registry.Keys; len(keys) > 0 {
+			// Sort the registry key IDs for a deterministic order.
+			ids := slices.Collect(maps.Keys(keys))
+			slices.Sort(ids)
 
-				// Resolve the registry key reference.
-				ref, err := dep.Resources.Registry.ResolveKey(id)
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
+			// Print information about each registry key.
+			fmt.Printf("  Registry Keys:\n")
+			for _, id := range ids {
+				func() {
+					fmt.Printf("    %s:\n", id)
 
-				// Generate a registry key path.
-				path, err := ref.Path()
-				if err != nil {
-					fmt.Printf("      Path:        (%v)\n", err)
-					return
-				}
-
-				// Open the registry key.
-				key, err := localregistry.OpenKey(ref)
-				if err != nil {
-					fmt.Printf("      Path:        %s\n", path)
-					if os.IsNotExist(err) {
-						fmt.Printf("      Status:      Missing\n")
-					} else {
-						fmt.Printf("      Status:      (%v)\n", err)
+					// Resolve the registry key reference.
+					ref, err := resolver.ResolveKey(id)
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
 					}
-					return
-				}
-				defer key.Close()
 
-				// Print the path and status.
-				fmt.Printf("      Path:        %s\n", key.Path())
-				fmt.Printf("      Status:      Present\n")
-			}()
+					// Generate a registry key path.
+					path, err := ref.Path()
+					if err != nil {
+						fmt.Printf("      Path:        (%v)\n", err)
+						return
+					}
+
+					// Open the registry key.
+					key, err := localregistry.OpenKey(ref)
+					if err != nil {
+						fmt.Printf("      Path:        %s\n", path)
+						if os.IsNotExist(err) {
+							fmt.Printf("      Status:      Missing\n")
+						} else {
+							fmt.Printf("      Status:      (%v)\n", err)
+						}
+						return
+					}
+					defer key.Close()
+
+					// Print the path and status.
+					fmt.Printf("      Path:        %s\n", key.Path())
+					fmt.Printf("      Status:      Present\n")
+				}()
+			}
 		}
-	}
 
-	// Print registry value resources.
-	if values := dep.Resources.Registry.Values; len(values) > 0 {
-		// Sort the registry value IDs for a deterministic order.
-		ids := slices.Collect(maps.Keys(values))
-		slices.Sort(ids)
+		// Print registry value resources.
+		if values := dep.Resources.Registry.Values; len(values) > 0 {
+			// Sort the registry value IDs for a deterministic order.
+			ids := slices.Collect(maps.Keys(values))
+			slices.Sort(ids)
 
-		// Print information about each registry value.
-		fmt.Printf("  Registry Values:\n")
-		for _, id := range ids {
-			func() {
-				fmt.Printf("    %s:\n", id)
+			// Print information about each registry value.
+			fmt.Printf("  Registry Values:\n")
+			for _, id := range ids {
+				func() {
+					fmt.Printf("    %s:\n", id)
 
-				// Resolve the registry value reference.
-				ref, err := dep.Resources.Registry.ResolveValue(id)
-				if err != nil {
-					fmt.Printf("      Key:         (%v)\n", err)
+					// Resolve the registry value reference.
+					ref, err := resolver.ResolveValue(id)
+					if err != nil {
+						fmt.Printf("      Key:         (%v)\n", err)
+						fmt.Printf("      Name:        %s\n", ref.Name)
+						return
+					}
+
+					// Generate a registry key path.
+					path, err := ref.Key().Path()
+					if err != nil {
+						fmt.Printf("      Key:         (%v)\n", err)
+						fmt.Printf("      Name:        %s\n", ref.Name)
+						return
+					}
+
+					// Attempt to open the parent key.
+					key, err := localregistry.OpenKey(ref.Key())
+					if err != nil {
+						fmt.Printf("      Key:         %s\n", path)
+						fmt.Printf("      Name:        %s\n", ref.Name)
+						if os.IsNotExist(err) {
+							fmt.Printf("      Status:      Missing\n")
+						} else {
+							fmt.Printf("      Status:      (%v)\n", err)
+						}
+						return
+					}
+					defer key.Close()
+
+					// Print the key path and value name
+					fmt.Printf("      Key:         %s\n", key.Path())
 					fmt.Printf("      Name:        %s\n", ref.Name)
-					return
-				}
 
-				// Generate a registry key path.
-				path, err := ref.Key().Path()
-				if err != nil {
-					fmt.Printf("      Key:         (%v)\n", err)
-					fmt.Printf("      Name:        %s\n", ref.Name)
-					return
-				}
-
-				// Attempt to open the parent key.
-				key, err := localregistry.OpenKey(ref.Key())
-				if err != nil {
-					fmt.Printf("      Key:         %s\n", path)
-					fmt.Printf("      Name:        %s\n", ref.Name)
-					if os.IsNotExist(err) {
-						fmt.Printf("      Status:      Missing\n")
-					} else {
+					// Determine whether the registry value exists.
+					exists, err := key.HasValue(ref.Name)
+					if err != nil {
 						fmt.Printf("      Status:      (%v)\n", err)
 					}
-					return
-				}
-				defer key.Close()
 
-				// Print the key path and value name
-				fmt.Printf("      Key:         %s\n", key.Path())
-				fmt.Printf("      Name:        %s\n", ref.Name)
+					if !exists {
+						fmt.Printf("      Status:      Missing\n")
+						return
+					}
 
-				// Determine whether the registry value exists.
-				exists, err := key.HasValue(ref.Name)
-				if err != nil {
-					fmt.Printf("      Status:      (%v)\n", err)
-				}
+					value, err := key.GetValue(ref.Name, ref.Type)
+					if err != nil {
+						fmt.Printf("      Value:       (%v)\n", err)
+						return
+					}
+					fmt.Printf("      Value:       %s\n", value)
 
-				if !exists {
-					fmt.Printf("      Status:      Missing\n")
-					return
-				}
-
-				value, err := key.GetValue(ref.Name, ref.Type)
-				if err != nil {
-					fmt.Printf("      Value:       (%v)\n", err)
-					return
-				}
-				fmt.Printf("      Value:       %s\n", value)
-
-				// TODO: Report statistics.
-				//fmt.Printf("      Modified: %s\n", fi.ModTime())
-				//fmt.Printf("      Size:     %d bytes(s)\n", fi.Size())
-			}()
+					// TODO: Report statistics.
+					//fmt.Printf("      Modified: %s\n", fi.ModTime())
+					//fmt.Printf("      Size:     %d bytes(s)\n", fi.Size())
+				}()
+			}
 		}
 	}
 

@@ -138,7 +138,8 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			}
 			return exists, nil
 		case lbdeploy.ConditionTypeRegistryKeyExists:
-			ref, err := engine.deployment.Resources.Registry.ResolveKey(lbdeploy.RegistryKeyResourceID(condition.Subject))
+			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+			ref, err := resolver.ResolveKey(lbdeploy.RegistryKeyResourceID(condition.Subject))
 			if err != nil {
 				return false, conditionSelfError(id, condition, err)
 			}
@@ -152,7 +153,8 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			defer key.Close()
 			return true, nil
 		case lbdeploy.ConditionTypeRegistryValueExists, lbdeploy.ConditionTypeRegistryValueComparison:
-			ref, err := engine.deployment.Resources.Registry.ResolveValue(lbdeploy.RegistryValueResourceID(condition.Subject))
+			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+			ref, err := resolver.ResolveValue(lbdeploy.RegistryValueResourceID(condition.Subject))
 			if err != nil {
 				return false, conditionSelfError(id, condition, err)
 			}
