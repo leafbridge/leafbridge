@@ -24,5 +24,8 @@ go.work.sum
 # env file
 .env
 
-# deployment configuration file
+# Deployment configuration file
 *.deploy.json
+
+# Generated syso files
+*.syso
