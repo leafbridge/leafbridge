@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbdeployevent"
 	"github.com/leafbridge/leafbridge/core/lbevent"
 	"github.com/leafbridge/leafbridge/platform/windows/lbengine"
 	"github.com/leafbridge/leafbridge/platform/windows/windowsevent"
@@ -36,6 +37,10 @@ func (cmd DeployCmd) Run(ctx context.Context) error {
 		}}
 	*/
 
+	// Prepare an event registry.
+	events := lbevent.NewRegistry(startingEventID)
+	events.Add(lbdeployevent.Registrations...)
+
 	// Attempt to use a Windows event handler, but carry on regardless if it
 	// doens't work out. The most likely reason it won't work is if the
 	// running process isn't elevated.
@@ -46,7 +51,7 @@ func (cmd DeployCmd) Run(ctx context.Context) error {
 			min = slog.LevelDebug
 		}
 		basicHandler := lbevent.NewBasicHandler(os.Stdout, min)
-		windowsHandler, err := windowsevent.NewHandler()
+		windowsHandler, err := windowsevent.NewHandler(events)
 		if err != nil {
 			handler = basicHandler
 		} else {

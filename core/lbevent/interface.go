@@ -2,14 +2,10 @@ package lbevent
 
 import "log/slog"
 
-// Component identifies the component within LeafBridge that generated the
-// event.
-//type Component string
-
 // Interface is a common interface implemented by all LeafBridge events.
 type Interface interface {
-	// Component identifies the component that generated the event.
-	Component() string
+	// Type returns the type of the event.
+	Type() Type
 
 	// Level returns the level of the event.
 	Level() slog.Level

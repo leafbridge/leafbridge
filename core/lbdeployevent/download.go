@@ -8,6 +8,14 @@ import (
 
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
+)
+
+// Deployment download event types.
+const (
+	DownloadStartedType = lbevent.Type("deployment.download:started")
+	DownloadStoppedType = lbevent.Type("deployment.download:stopped")
+	DownloadResetType   = lbevent.Type("deployment.download:reset")
 )
 
 // DownloadStarted is an event that occurs when a file download has started.
@@ -22,9 +30,9 @@ type DownloadStarted struct {
 	Offset      int64
 }
 
-// Component identifies the component that generated the event.
-func (e DownloadStarted) Component() string {
-	return "download"
+// Type returns the type of the event.
+func (e DownloadStarted) Type() lbevent.Type {
+	return DownloadStartedType
 }
 
 // Level returns the level of the event.
@@ -84,9 +92,9 @@ type DownloadStopped struct {
 	Err         error
 }
 
-// Component identifies the component that generated the event.
-func (e DownloadStopped) Component() string {
-	return "download"
+// Type returns the type of the event.
+func (e DownloadStopped) Type() lbevent.Type {
+	return DownloadStoppedType
 }
 
 // Level returns the level of the event.
@@ -206,9 +214,9 @@ type DownloadReset struct {
 	Reason      DownloadResetReason
 }
 
-// Component identifies the component that generated the event.
-func (e DownloadReset) Component() string {
-	return "download"
+// Type returns the type of the event.
+func (e DownloadReset) Type() lbevent.Type {
+	return DownloadResetType
 }
 
 // Level returns the level of the event.

@@ -127,7 +127,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 			fileStopped := time.Now()
 
 			// Record the extraction of the file.
-			engine.events.Record(lbdeployevent.ExtractedFile{
+			engine.events.Record(lbdeployevent.FileExtraction{
 				Deployment: engine.deployment.ID,
 				Flow:       engine.flow.ID,
 				Action:     engine.action.Definition.Type,

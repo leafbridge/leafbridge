@@ -1,6 +1,7 @@
 package windowsevent
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -11,15 +12,26 @@ import (
 
 const lbEventSource = "LeafBridge"
 
+// EventMapper is an interface that is capable of mapping event types to IDs.
+type EventMapper interface {
+	EventID(event lbevent.Type) (id lbevent.ID, ok bool)
+}
+
 // Handler is a LeafBridge event handler that sends events to the
 // Windows event log.
 type Handler struct {
-	elog *eventlog.Log
+	elog   *eventlog.Log
+	mapper EventMapper
 }
 
 // NewWindowsHandler returns a WindowsHandler that sends events to the
-// Windows event log.
-func NewHandler() (Handler, error) {
+// Windows event log. The provided event mapper is used to determine
+// event IDs.
+func NewHandler(mapper EventMapper) (Handler, error) {
+	if mapper == nil {
+		return Handler{}, errors.New("failed to prepare a new windowsevent.Handler: a nil event mapper was provided")
+	}
+
 	// Register the event source if it isn't already registered.
 	alreadyRegisterd, err := IsWindowsEventSourceRegistered(lbEventSource)
 	if err != nil {
@@ -39,7 +51,10 @@ func NewHandler() (Handler, error) {
 	if err != nil {
 		return Handler{}, fmt.Errorf("failed to open event log source for \"%s\": %w", lbEventSource, err)
 	}
-	return Handler{elog: elog}, nil
+	return Handler{
+		elog:   elog,
+		mapper: mapper,
+	}, nil
 }
 
 // Name returns a name for the handler.
@@ -49,14 +64,20 @@ func (h Handler) Name() string {
 
 // Handle processes the given event record.
 func (h Handler) Handle(r lbevent.Record) (err error) {
+	id, ok := h.mapper.EventID(r.Type())
+	if !ok {
+		id = 1000
+	}
+	eid := uint32(id)
+
 	// Log the event according to the event level.
 	switch level := r.Level(); {
 	case level >= slog.LevelError:
-		err = h.elog.Error(300, eventMessageWithDetails(r))
+		err = h.elog.Error(eid, eventMessageWithDetails(r))
 	case level >= slog.LevelWarn:
-		err = h.elog.Warning(200, eventMessageWithDetails(r))
+		err = h.elog.Warning(eid, eventMessageWithDetails(r))
 	case level >= slog.LevelInfo:
-		err = h.elog.Info(100, eventMessageWithDetails(r))
+		err = h.elog.Info(eid, eventMessageWithDetails(r))
 	default:
 		return nil // Drop debug messages.
 	}
@@ -65,11 +86,11 @@ func (h Handler) Handle(r lbevent.Record) (err error) {
 	if err != nil {
 		switch level := r.Level(); {
 		case level >= slog.LevelError:
-			h.elog.Error(300, r.Message())
+			h.elog.Error(eid, r.Message())
 		case level >= slog.LevelWarn:
-			h.elog.Warning(200, r.Message())
+			h.elog.Warning(eid, r.Message())
 		case level >= slog.LevelInfo:
-			h.elog.Info(100, r.Message())
+			h.elog.Info(eid, r.Message())
 		}
 	}
 

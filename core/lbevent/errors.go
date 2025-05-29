@@ -46,7 +46,7 @@ func (e HandlerError) Attrs() []slog.Attr {
 
 // Error returns a string describing the error.
 func (e HandlerError) Error() string {
-	return fmt.Sprintf("the \"%s\" event handler failed to record a \"%s\" event: %s", e.HandlerName, e.Record.Component(), e.Err)
+	return fmt.Sprintf("the \"%s\" event handler failed to record a \"%s\" event: %s", e.HandlerName, e.Record.Type(), e.Err)
 }
 
 // Unwrap returns the error wrapped by e.
@@ -100,7 +100,7 @@ func (e MultiHandlerError) Error() string {
 	} else {
 		affected = fmt.Sprintf("%d members", n)
 	}
-	return fmt.Sprintf("%s of the \"%s\" event handler failed to record a \"%s\" event: %s", affected, e.HandlerName, e.Record.Component(), errors.Join(e.Errors...))
+	return fmt.Sprintf("%s of the \"%s\" event handler failed to record a \"%s\" event: %s", affected, e.HandlerName, e.Record.Type(), errors.Join(e.Errors...))
 }
 
 // Unwrap returns the errors wrapped by e.

@@ -7,9 +7,19 @@ import (
 
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
 )
 
 // TODO: Add some sort of random UUID for the deployment instance?
+
+// Deployment file event types.
+const (
+	FlowStartedType         = lbevent.Type("deployment.flow:started")
+	FlowStoppedType         = lbevent.Type("deployment.flow:stopped")
+	FlowConditionType       = lbevent.Type("deployment.flow:condition")
+	FlowLockNotAcquiredType = lbevent.Type("deployment.flow:lock-not-acquired")
+	FlowAlreadyRunningType  = lbevent.Type("deployment.flow:already-running")
+)
 
 // FlowStarted is an event that occurs when a deployment flow has started.
 type FlowStarted struct {
@@ -17,9 +27,9 @@ type FlowStarted struct {
 	Flow       lbdeploy.FlowID
 }
 
-// Component identifies the component that generated the event.
-func (e FlowStarted) Component() string {
-	return "flow"
+// Type returns the type of the event.
+func (e FlowStarted) Type() lbevent.Type {
+	return FlowStartedType
 }
 
 // Level returns the level of the event.
@@ -63,9 +73,9 @@ type FlowStopped struct {
 	Err        error
 }
 
-// Component identifies the component that generated the event.
-func (e FlowStopped) Component() string {
-	return "flow"
+// Type returns the type of the event.
+func (e FlowStopped) Type() lbevent.Type {
+	return FlowStoppedType
 }
 
 // Level returns the level of the event.
@@ -148,9 +158,9 @@ type FlowCondition struct {
 	Err        error
 }
 
-// Component identifies the component that generated the event.
-func (e FlowCondition) Component() string {
-	return "flow"
+// Type returns the type of the event.
+func (e FlowCondition) Type() lbevent.Type {
+	return FlowConditionType
 }
 
 // Level returns the level of the event.
@@ -211,9 +221,9 @@ type FlowLockNotAcquired struct {
 	Err        error
 }
 
-// Component identifies the component that generated the event.
-func (e FlowLockNotAcquired) Component() string {
-	return "flow"
+// Type returns the type of the event.
+func (e FlowLockNotAcquired) Type() lbevent.Type {
+	return FlowLockNotAcquiredType
 }
 
 // Level returns the level of the event.
@@ -266,9 +276,9 @@ type FlowAlreadyRunning struct {
 	Flow       lbdeploy.FlowID
 }
 
-// Component identifies the component that generated the event.
-func (e FlowAlreadyRunning) Component() string {
-	return "flow"
+// Type returns the type of the event.
+func (e FlowAlreadyRunning) Type() lbevent.Type {
+	return FlowAlreadyRunningType
 }
 
 // Level returns the level of the event.

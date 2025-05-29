@@ -8,6 +8,13 @@ import (
 
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
+)
+
+// Deployment action event types.
+const (
+	ActionStartedType = lbevent.Type("deployment.action:started")
+	ActionStoppedType = lbevent.Type("deployment.action:stopped")
 )
 
 // ActionStarted is an event that occurs when a deployment action has started.
@@ -18,9 +25,9 @@ type ActionStarted struct {
 	ActionType  lbdeploy.ActionType
 }
 
-// Component identifies the component that generated the event.
-func (e ActionStarted) Component() string {
-	return "action"
+// Type returns the type of the event.
+func (e ActionStarted) Type() lbevent.Type {
+	return ActionStartedType
 }
 
 // Level returns the level of the event.
@@ -68,9 +75,9 @@ type ActionStopped struct {
 	Err         error
 }
 
-// Component identifies the component that generated the event.
-func (e ActionStopped) Component() string {
-	return "action"
+// Type returns the type of the event.
+func (e ActionStopped) Type() lbevent.Type {
+	return ActionStoppedType
 }
 
 // Level returns the level of the event.

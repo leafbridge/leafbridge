@@ -9,7 +9,87 @@ import (
 
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
 )
+
+// Deployment file event types.
+const (
+	FileExtractionType   = lbevent.Type("deployment.file:extraction")
+	FileVerificationType = lbevent.Type("deployment.file:verification")
+	FileCopyType         = lbevent.Type("deployment.file:copy")
+	FileDeleteType       = lbevent.Type("deployment.file:delete")
+)
+
+// FileExtraction is an event that occurs when an archived file has been
+// extracted.
+type FileExtraction struct {
+	Deployment lbdeploy.DeploymentID
+	Flow       lbdeploy.FlowID
+	Action     lbdeploy.ActionType
+	FileNumber int
+	Path       string
+	FileSize   int64
+	Started    time.Time
+	Stopped    time.Time
+	Err        error
+}
+
+// Type returns the type of the event.
+func (e FileExtraction) Type() lbevent.Type {
+	return FileExtractionType
+}
+
+// Level returns the level of the event.
+func (e FileExtraction) Level() slog.Level {
+	if e.Err != nil {
+		return slog.LevelError
+	}
+	return slog.LevelDebug
+}
+
+// Message returns a description of the event.
+func (e FileExtraction) Message() string {
+	duration := e.Duration().Round(time.Millisecond * 10)
+	if e.Err != nil {
+		return fmt.Sprintf("Extract: File %d: %s: Failed: %s. (%d %s, %s, %s mbps)", e.FileNumber, e.Path, e.Err, e.FileSize, plural(e.FileSize, "byte", "bytes"), duration, e.BitrateInMbps())
+	}
+	return fmt.Sprintf("Extract: File %d: %s: Completed. (%d %s, %s, %s mbps)", e.FileNumber, e.Path, e.FileSize, plural(e.FileSize, "byte", "bytes"), duration, e.BitrateInMbps())
+}
+
+// Details returns additional details about the event. It might include
+// multiple lines of text. An empty string is returned when no details
+// are available.
+func (e FileExtraction) Details() string {
+	return ""
+}
+
+// Attrs returns a set of structured log attributes for the event.
+func (e FileExtraction) Attrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("deployment", string(e.Deployment)),
+		slog.String("flow", string(e.Flow)),
+		slog.String("action", string(e.Action)),
+		slog.Int("file-number", e.FileNumber),
+		slog.String("path", e.Path),
+		slog.Int64("file-size", e.FileSize),
+		slog.Time("started", e.Started),
+		slog.Time("stopped", e.Stopped),
+	}
+	if e.Err != nil {
+		attrs = append(attrs, slog.String("error", e.Err.Error()))
+	}
+	return attrs
+}
+
+// Duration returns the duration of the extraction process.
+func (e FileExtraction) Duration() time.Duration {
+	return e.Stopped.Sub(e.Started)
+}
+
+// BitrateInMbps returns the bitrate of the extraction in mebibits per second.
+func (e FileExtraction) BitrateInMbps() string {
+	return bitrate(e.FileSize, e.Duration())
+}
 
 // FileVerification is an event that records the result of verifying
 // a downloaded file.
@@ -25,9 +105,9 @@ type FileVerification struct {
 	Actual      lbdeploy.FileAttributes
 }
 
-// Component identifies the component that generated the event.
-func (e FileVerification) Component() string {
-	return "verification"
+// Type returns the type of the event.
+func (e FileVerification) Type() lbevent.Type {
+	return FileVerificationType
 }
 
 // Level returns the level of the event.
@@ -108,9 +188,9 @@ type FileCopy struct {
 	Err                error
 }
 
-// Component identifies the component that generated the event.
-func (e FileCopy) Component() string {
-	return "file"
+// Type returns the type of the event.
+func (e FileCopy) Type() lbevent.Type {
+	return FileCopyType
 }
 
 // Level returns the level of the event.
@@ -204,9 +284,9 @@ type FileDelete struct {
 	Err         error
 }
 
-// Component identifies the component that generated the event.
-func (e FileDelete) Component() string {
-	return "file"
+// Type returns the type of the event.
+func (e FileDelete) Type() lbevent.Type {
+	return FileDeleteType
 }
 
 // Level returns the level of the event.

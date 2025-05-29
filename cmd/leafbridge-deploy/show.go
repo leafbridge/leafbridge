@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gentlemanautomaton/winobj/winmutex"
+	"github.com/leafbridge/leafbridge/core/lbdeployevent"
+	"github.com/leafbridge/leafbridge/core/lbevent"
 	"github.com/leafbridge/leafbridge/platform/windows/lbengine"
 	"github.com/leafbridge/leafbridge/platform/windows/localfs"
 	"github.com/leafbridge/leafbridge/platform/windows/localregistry"
@@ -17,10 +19,25 @@ import (
 
 // ShowCmd shows information that is relevant to a LeafBridge deployment.
 type ShowCmd struct {
+	EventTypes ShowEventTypesCmd `kong:"cmd,help='Shows a list of event types that may be recorded.'"`
 	Config     ShowConfigCmd     `kong:"cmd,help='Shows configuration loaded from a deployment configuration file.'"`
 	Apps       ShowAppsCmd       `kong:"cmd,help='Shows the installation status of applications for a deployment.'"`
 	Conditions ShowConditionsCmd `kong:"cmd,help='Shows the current conditions for a deployment.'"`
 	Resources  ShowResourcesCmd  `kong:"cmd,help='Shows the relevant resources for a deployment.'"`
+}
+
+// ShowEventTypesCmd shows a list of event types that can be recorded.
+type ShowEventTypesCmd struct{}
+
+// Run executes the LeafBridge show event-types command.
+func (cmd ShowEventTypesCmd) Run(ctx context.Context) error {
+	events := lbevent.NewRegistry(startingEventID)
+	events.Add(lbdeployevent.Registrations...)
+	for _, eventType := range events.Types() {
+		eventID, _ := events.EventID(eventType)
+		fmt.Printf("%00d: %s\n", eventID, eventType)
+	}
+	return nil
 }
 
 // ShowConfigCmd shows the configuration of a LeafBridge deployment.

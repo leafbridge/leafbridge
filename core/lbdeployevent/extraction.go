@@ -8,6 +8,13 @@ import (
 
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
+)
+
+// Deployment extraction event types.
+const (
+	ExtractionStartedType = lbevent.Type("deployment.extraction:started")
+	ExtractionStoppedType = lbevent.Type("deployment.extraction:stopped")
 )
 
 // ExtractionStats holds information about of files that are being extracted.
@@ -55,9 +62,9 @@ type ExtractionStarted struct {
 	SourceStats     ExtractionStats
 }
 
-// Component identifies the component that generated the event.
-func (e ExtractionStarted) Component() string {
-	return "extraction"
+// Type returns the type of the event.
+func (e ExtractionStarted) Type() lbevent.Type {
+	return ExtractionStartedType
 }
 
 // Level returns the level of the event.
@@ -112,9 +119,9 @@ type ExtractionStopped struct {
 	Err              error
 }
 
-// Component identifies the component that generated the event.
-func (e ExtractionStopped) Component() string {
-	return "extraction"
+// Type returns the type of the event.
+func (e ExtractionStopped) Type() lbevent.Type {
+	return ExtractionStoppedType
 }
 
 // Level returns the level of the event.
@@ -180,75 +187,4 @@ func (e ExtractionStopped) Duration() time.Duration {
 // BitrateInMbps returns the bitrate of the extraction in mebibits per second.
 func (e ExtractionStopped) BitrateInMbps() string {
 	return bitrate(e.DestinationStats.TotalBytes, e.Duration())
-}
-
-// ExtractedFile is an event that occurs when an archived file has been
-// extracted.
-type ExtractedFile struct {
-	Deployment lbdeploy.DeploymentID
-	Flow       lbdeploy.FlowID
-	Action     lbdeploy.ActionType
-	FileNumber int
-	Path       string
-	FileSize   int64
-	Started    time.Time
-	Stopped    time.Time
-	Err        error
-}
-
-// Component identifies the component that generated the event.
-func (e ExtractedFile) Component() string {
-	return "extraction"
-}
-
-// Level returns the level of the event.
-func (e ExtractedFile) Level() slog.Level {
-	if e.Err != nil {
-		return slog.LevelError
-	}
-	return slog.LevelDebug
-}
-
-// Message returns a description of the event.
-func (e ExtractedFile) Message() string {
-	duration := e.Duration().Round(time.Millisecond * 10)
-	if e.Err != nil {
-		return fmt.Sprintf("Extract: File %d: %s: Failed: %s. (%d %s, %s, %s mbps)", e.FileNumber, e.Path, e.Err, e.FileSize, plural(e.FileSize, "byte", "bytes"), duration, e.BitrateInMbps())
-	}
-	return fmt.Sprintf("Extract: File %d: %s: Completed. (%d %s, %s, %s mbps)", e.FileNumber, e.Path, e.FileSize, plural(e.FileSize, "byte", "bytes"), duration, e.BitrateInMbps())
-}
-
-// Details returns additional details about the event. It might include
-// multiple lines of text. An empty string is returned when no details
-// are available.
-func (e ExtractedFile) Details() string {
-	return ""
-}
-
-// Attrs returns a set of structured log attributes for the event.
-func (e ExtractedFile) Attrs() []slog.Attr {
-	attrs := []slog.Attr{
-		slog.String("deployment", string(e.Deployment)),
-		slog.String("flow", string(e.Flow)),
-		slog.String("action", string(e.Action)),
-		slog.Int("file-number", e.FileNumber),
-		slog.String("path", e.Path),
-		slog.Int64("file-size", e.FileSize),
-		slog.Time("started", e.Started),
-		slog.Time("stopped", e.Stopped),
-	}
-	if e.Err != nil {
-		attrs = append(attrs, slog.String("error", e.Err.Error()))
-	}
-	return attrs
-}
-
-// Duration returns the duration of the extraction process.
-func (e ExtractedFile) Duration() time.Duration {
-	return e.Stopped.Sub(e.Started)
-}
-
-// BitrateInMbps returns the bitrate of the extraction in mebibits per second.
-func (e ExtractedFile) BitrateInMbps() string {
-	return bitrate(e.FileSize, e.Duration())
 }

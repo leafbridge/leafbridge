@@ -10,6 +10,14 @@ import (
 	"github.com/gentlemanautomaton/structformat"
 	"github.com/gentlemanautomaton/structformat/fieldformat"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbevent"
+)
+
+// Deployment command event types.
+const (
+	CommandSkippedType = lbevent.Type("deployment.command:skipped")
+	CommandStartedType = lbevent.Type("deployment.command:started")
+	CommandStoppedType = lbevent.Type("deployment.command:stopped")
 )
 
 // CommandSkipped is an event that occurs when a command is skipped.
@@ -23,9 +31,9 @@ type CommandSkipped struct {
 	Apps        lbdeploy.AppEvaluation
 }
 
-// Component identifies the component that generated the event.
-func (e CommandSkipped) Component() string {
-	return "command"
+// Type returns the type of the event.
+func (e CommandSkipped) Type() lbevent.Type {
+	return CommandSkippedType
 }
 
 // Level returns the level of the event.
@@ -99,9 +107,9 @@ type CommandStarted struct {
 	Apps                 lbdeploy.AppEvaluation
 }
 
-// Component identifies the component that generated the event.
-func (e CommandStarted) Component() string {
-	return "command"
+// Type returns the type of the event.
+func (e CommandStarted) Type() lbevent.Type {
+	return CommandStartedType
 }
 
 // Level returns the level of the event.
@@ -195,9 +203,9 @@ type CommandStopped struct {
 	Err                  error
 }
 
-// Component identifies the component that generated the event.
-func (e CommandStopped) Component() string {
-	return "command"
+// Type returns the type of the event.
+func (e CommandStopped) Type() lbevent.Type {
+	return CommandStoppedType
 }
 
 // Level returns the level of the event.
