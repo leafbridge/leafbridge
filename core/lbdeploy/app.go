@@ -2,7 +2,10 @@ package lbdeploy
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+
+	"github.com/leafbridge/leafbridge/core/datatype"
 )
 
 // AppMap holds a set of applications mapped by their identifiers.
@@ -68,6 +71,8 @@ type Application struct {
 	Scope        AppScope        `json:"scope,omitempty"`
 	ProductCode  ProductCode     `json:"product-code,omitempty"`
 	Detection    AppDetection    `json:"detection,omitempty"`
+	Tags         AppReleaseTags  `json:"tags,omitempty"`
+	Releases     AppReleaseList  `json:"releases,omitempty"`
 }
 
 // AppDetection describes how to detect the presence of an installed
@@ -75,6 +80,49 @@ type Application struct {
 type AppDetection struct {
 	Present ConditionID             `json:"present,omitempty"`
 	Version RegistryValueResourceID `json:"version,omitempty"`
+}
+
+// AppReleaseTag is a tag that can be applied to an application release.
+type AppReleaseTag string
+
+// AppReleaseTags is a map that assigns application release tags to release
+// versions.
+type AppReleaseTags map[AppReleaseTag]datatype.Version
+
+// ReleaseTags returns the set of tags that are assigned to the given release
+// version.
+func (m AppReleaseTags) ReleaseTags(version datatype.Version) []AppReleaseTag {
+	var tags []AppReleaseTag
+	for tag, candidate := range m {
+		if datatype.CompareVersions(candidate, version) == 0 {
+			tags = append(tags, tag)
+		}
+	}
+	slices.Sort(tags)
+	return tags
+}
+
+// AppReleaseList holds a set of application releases.
+type AppReleaseList []AppRelease
+
+// FindVersion looks for a release within the list that matches the given
+// version. If successful, it returns the release.
+//
+// TODO: Support more flexible matching of releases.
+func (list AppReleaseList) FindVersion(version datatype.Version) (release AppRelease, ok bool) {
+	for i := range list {
+		if datatype.CompareVersions(datatype.Version(list[i].Version), version) == 0 {
+			return list[i], true
+		}
+	}
+	return
+}
+
+// AppRelease describes a specific release of an application.
+type AppRelease struct {
+	Name    string           `json:"name,omitempty"`
+	Version datatype.Version `json:"version,omitempty"`
+	Date    string           `json:"date,omitzero"`
 }
 
 // AppEvaluation is an evaluation of potential changes to the set of installed

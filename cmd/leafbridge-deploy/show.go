@@ -102,7 +102,7 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 	ids := slices.Collect(maps.Keys(dep.Apps))
 	slices.Sort(ids)
 
-	// Print the status of each condition.
+	// Print the status of each application.
 	for _, id := range ids {
 		installed, installedErr := ae.IsInstalled(id)
 		if installedErr == nil {
@@ -128,6 +128,7 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 
 		{
 			var info []string
+
 			if scope := string(app.Scope); scope != "" {
 				switch scope {
 				case "machine":
@@ -137,18 +138,36 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				}
 				info = append(info, scope)
 			}
+
 			if app.Architecture != "" {
 				info = append(info, string(app.Architecture))
 			}
-			if version, err := ae.Version(id); err == nil && version != "" {
-				info = append(info, fmt.Sprintf("v%s", version.Canonical()))
-			} else if installedErr != nil {
+
+			if installedErr != nil {
 				info = append(info, installedErr.Error())
-			} else if installed {
-				info = append(info, "Installed")
-			} else {
+			} else if !installed {
 				info = append(info, "Missing")
+			} else {
+				info = append(info, "Installed")
+
+				if version, err := ae.Version(id); err == nil && version != "" {
+					var notes []string
+					if release, found := app.Releases.FindVersion(version); found {
+						if release.Date != "" {
+							notes = append(notes, release.Date)
+						}
+						for _, tag := range app.Tags.ReleaseTags(version) {
+							notes = append(notes, string(tag))
+						}
+					}
+					if len(notes) > 0 {
+						info = append(info, fmt.Sprintf("v%s (%s)", version.Canonical(), strings.Join(notes, ", ")))
+					} else {
+						info = append(info, fmt.Sprintf("v%s", version.Canonical()))
+					}
+				}
 			}
+
 			if len(info) > 0 {
 				fmt.Printf("      Info:         %s\n", strings.Join(info, ", "))
 			}
