@@ -30,6 +30,10 @@ type RegistryKeyResource struct {
 	// resource ID.
 	Location RegistryKeyResourceID `json:"location,omitempty"`
 
+	// View identifies a registry view to use when accessing the registry. It
+	// is only applied if Location is a well-known registry root ID.
+	View RegistryView `json:"view,omitempty"`
+
 	// Name is the name of the key within its location.
 	Name string `json:"name,omitempty"`
 
@@ -112,10 +116,68 @@ func (ref RegistryValueRef) Key() RegistryKeyRef {
 	}
 }
 
+// RegistryView identifies an [Alternate Registry View] of the Windows
+// registry. It can be unspecified, which will use a view that is consistent
+// with the calling application's architecture, or it can specify a 32-bit or
+// 64-bit view of the registry.
+//
+// When marshaled as a string, the specified values are marshaled as "32-bit"
+// and "64-bit" respectively.
+//
+// [Alternate Registry View]: https://learn.microsoft.com/en-us/windows/win32/winprog64/accessing-an-alternate-registry-view
+type RegistryView int
+
+// Possible views of the Windows registry.
+const (
+	RegistryViewUnspecified RegistryView = iota
+	RegistryView32Bit
+	RegistryView64Bit
+)
+
+// UnmarshalText attempts to unmarshal the given text into view.
+func (view *RegistryView) UnmarshalText(b []byte) error {
+	switch string(b) {
+	case "":
+		*view = RegistryViewUnspecified
+	case "32-bit":
+		*view = RegistryView32Bit
+	case "64-bit":
+		*view = RegistryView64Bit
+	default:
+		return fmt.Errorf("unrecognized registry view: %s", b)
+	}
+	return nil
+}
+
+// MarshalText marshals the registry view as text.
+func (view RegistryView) MarshalText() ([]byte, error) {
+	switch view {
+	case RegistryView32Bit:
+		return []byte("32-bit"), nil
+	case RegistryView64Bit:
+		return []byte("64-bit"), nil
+	case RegistryViewUnspecified:
+		return nil, nil
+	}
+	return nil, fmt.Errorf("unrecognized registry view: %d", view)
+}
+
+// String returns a string representation of the registry view.
+func (view RegistryView) String() string {
+	switch view {
+	case RegistryView32Bit:
+		return "32-bit"
+	case RegistryView64Bit:
+		return "64-bit"
+	}
+	return ""
+}
+
 // RegistryRoot is a root location within the Windows registry.
 type RegistryRoot struct {
 	ID            RegistryKeyResourceID
 	PredefinedKey PredefinedRegistryKey
+	View          RegistryView
 	Path          string
 }
 

@@ -10,6 +10,9 @@ import (
 )
 
 // Resolver is capable of locating registry resources on the local system.
+//
+// TODO: Consider moving this out of the localregistry package, as all of the
+// analysis can be done without depending on a Windows build target.
 type Resolver struct {
 	reg lbdeploy.RegistryResources
 }
@@ -22,7 +25,9 @@ func NewResolver(resources lbdeploy.RegistryResources) Resolver {
 // ResolveRoot looks for a well-known registry root with the given registry
 // key resource ID. If a registry root with the given ID is not recognized,
 // it returns [fs.ErrNotExist].
-func (resolver *Resolver) ResolveRoot(id lbdeploy.RegistryKeyResourceID) (lbdeploy.RegistryRoot, error) {
+//
+// The root that is returned will use the requested view of the registry.
+func (resolver *Resolver) ResolveRoot(id lbdeploy.RegistryKeyResourceID, view lbdeploy.RegistryView) (lbdeploy.RegistryRoot, error) {
 	// Look up the root by its registry key resource ID.
 	root, ok := registryRoots[id]
 	if !ok {
@@ -30,6 +35,10 @@ func (resolver *Resolver) ResolveRoot(id lbdeploy.RegistryKeyResourceID) (lbdepl
 	}
 
 	// Verify that the predefined key is valid.
+	//
+	// TODO: Remove or replace this verification step if we move the Resolver
+	// to a different package. This is also verified by OpenKey(), so checking
+	// it here isn't strictly necessary.
 	if _, err := PredefinedKeyHandle(root.key); err != nil {
 		return lbdeploy.RegistryRoot{}, fmt.Errorf("the \"%s\" registry root could not be resolved: %w", id, err)
 	}
@@ -37,6 +46,7 @@ func (resolver *Resolver) ResolveRoot(id lbdeploy.RegistryKeyResourceID) (lbdepl
 	return lbdeploy.RegistryRoot{
 		ID:            id,
 		PredefinedKey: root.key,
+		View:          view,
 		Path:          root.path,
 	}, nil
 }
@@ -56,7 +66,7 @@ func (resolver Resolver) ResolveKey(key lbdeploy.RegistryKeyResourceID) (ref lbd
 	// Look up the registry key by its ID.
 	data, exists := resolver.reg.Keys[key]
 	if !exists {
-		if candidate, err := resolver.ResolveRoot(key); err == nil {
+		if candidate, err := resolver.ResolveRoot(key, data.View); err == nil {
 			return lbdeploy.RegistryKeyRef{Root: candidate}, nil
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			return lbdeploy.RegistryKeyRef{}, err
@@ -84,7 +94,7 @@ func (resolver Resolver) ResolveKey(key lbdeploy.RegistryKeyResourceID) (ref lbd
 	// recording each parent along the way. Stop when we encounter a registry
 	// root.
 	lineage = append(lineage, data)
-	next := data.Location
+	next, view := data.Location, data.View
 	for {
 		// Check for cycles.
 		if seen.Contains(next) {
@@ -98,12 +108,12 @@ func (resolver Resolver) ResolveKey(key lbdeploy.RegistryKeyResourceID) (ref lbd
 			if parent.Location == "" {
 				return lbdeploy.RegistryKeyRef{}, fmt.Errorf("failed to resolve the \"%s\" registry key: the \"%s\" parent key does not have a location", key, next)
 			}
-			next = parent.Location
+			next, view = parent.Location, parent.View
 			continue
 		}
 
 		// Look for a registry root with the ID.
-		if candidate, err := resolver.ResolveRoot(next); err == nil {
+		if candidate, err := resolver.ResolveRoot(next, view); err == nil {
 			root = candidate
 			break
 		} else if !errors.Is(err, fs.ErrNotExist) {

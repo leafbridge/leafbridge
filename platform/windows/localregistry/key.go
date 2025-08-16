@@ -29,6 +29,15 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 		return Key{}, fmt.Errorf("unable to open registry key: %w", err)
 	}
 
+	// Get the view access flags from the root.
+	var access uint32
+	switch ref.Root.View {
+	case lbdeploy.RegistryView32Bit:
+		access = registry.WOW64_32KEY
+	case lbdeploy.RegistryView64Bit:
+		access = registry.WOW64_64KEY
+	}
+
 	// Start to build up the path of the key.
 	path, err := ref.Root.AbsolutePath()
 	if err != nil {
@@ -37,7 +46,7 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 
 	// Open the root's path relative to the predefined key. If the root does
 	// not specify a path, this will return the predefined key.
-	key, err := registry.OpenKey(predefinedKey, ref.Root.Path, registry.QUERY_VALUE)
+	key, err := registry.OpenKey(predefinedKey, ref.Root.Path, access|registry.QUERY_VALUE)
 	if err != nil {
 		return Key{}, err
 	}
@@ -53,13 +62,13 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 		// Traverse down to the next descendent.
 		switch {
 		case next.Name != "":
-			key, err = registry.OpenKey(parent, next.Name, registry.QUERY_VALUE)
+			key, err = registry.OpenKey(parent, next.Name, access|registry.QUERY_VALUE)
 			path = path + `\` + next.Name // Permit forward slashes
 		case next.Path != "":
 			var localized string
 			localized, err = filepath.Localize(next.Path)
 			if err == nil {
-				key, err = registry.OpenKey(parent, localized, registry.QUERY_VALUE)
+				key, err = registry.OpenKey(parent, localized, access|registry.QUERY_VALUE)
 				path = filepath.Join(path, localized)
 			}
 		default:
