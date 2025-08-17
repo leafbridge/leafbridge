@@ -77,8 +77,14 @@ func CompareVersions(a, b Version) int {
 		case !ok1 && !ok2:
 			return 0
 		case !ok1:
+			if CompareVersionSegments("0", segment2) == 0 {
+				continue
+			}
 			return -1
 		case !ok2:
+			if CompareVersionSegments("0", segment1) == 0 {
+				continue
+			}
 			return 1
 		}
 
