@@ -78,13 +78,13 @@ func (r VersionRange) String() string {
 	case r.Start != "" && r.End != "":
 		switch {
 		case r.StartIsExclusive && r.EndIsExclusive:
-			return "[" + r.Start.Canonical() + ", " + r.End.Canonical() + "]"
+			return "[" + string(r.Start.Canonical()) + ", " + string(r.End.Canonical()) + "]"
 		case !r.StartIsExclusive && !r.EndIsExclusive:
-			return "(" + r.Start.Canonical() + ", " + r.End.Canonical() + ")"
+			return "(" + string(r.Start.Canonical()) + ", " + string(r.End.Canonical()) + ")"
 		case !r.StartIsExclusive && r.EndIsExclusive:
-			return "(" + r.Start.Canonical() + ", " + r.End.Canonical() + "]"
+			return "(" + string(r.Start.Canonical()) + ", " + string(r.End.Canonical()) + "]"
 		default:
-			return "[" + r.Start.Canonical() + ", " + r.End.Canonical() + ")"
+			return "[" + string(r.Start.Canonical()) + ", " + string(r.End.Canonical()) + ")"
 		}
 	case r.Start != "":
 		if r.StartIsExclusive {
