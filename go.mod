@@ -12,6 +12,7 @@ require (
 	github.com/josephspurrier/goversioninfo v1.5.0
 	golang.org/x/mod v0.27.0
 	golang.org/x/sys v0.35.0
+	golang.org/x/text v0.28.0
 )
 
 require (
