@@ -102,7 +102,7 @@ func (e ActionStopped) Message() string {
 	if e.Err != nil {
 		builder.WriteStandard(fmt.Sprintf("Stopped action due to an error: %s", e.Err))
 	} else {
-		builder.WriteStandard(fmt.Sprintf("Completed action"))
+		builder.WriteStandard("Completed action")
 	}
 	builder.WriteNote(e.Duration().Round(time.Millisecond * 10).String())
 

@@ -127,41 +127,17 @@ func (engine *commandEngine) InvokeArchive(ctx context.Context, files tempfs.Ext
 	return engine.invokePath(ctx, execPath)
 }
 
-// InvokeApp runs the command against an application's product code.
+// InvokeApp runs the command against an application's product codes.
 func (engine *commandEngine) InvokeApp(ctx context.Context) error {
-	// Determine what application we will be operting on.
-	var app lbdeploy.AppID
+	// Verify that there is work to be done.
 	switch engine.command.Definition.Type {
 	case lbdeploy.CommandTypeMSIUninstallProductCode:
-		if len(engine.command.Definition.Uninstalls) != 1 {
-			return fmt.Errorf("%s must provide a single application ID to be uninstalled", engine.cmdDesc())
+		if len(engine.command.Definition.Uninstalls) == 0 {
+			return fmt.Errorf("%s must provide at least one application to be uninstalled", engine.cmdDesc())
 		}
-		app = engine.command.Definition.Uninstalls[0]
-	default:
-		return fmt.Errorf("%s uses a \"%s\" command type that is not recognized or is not suitable for app-based invocation", engine.cmdDesc(), engine.command.Definition.Type)
-	}
-
-	// Get information about the application from the deployment.
-	appData, exists := engine.deployment.Apps[app]
-	if !exists {
-		return fmt.Errorf("%s refers to an application \"%s\" that is not defined in the \"%s\" deployment", engine.cmdDesc(), app, engine.deployment.ID)
-	}
-
-	// Make sure a product code is defined.
-	if appData.ProductCode == "" {
-		return fmt.Errorf("%s refers to an application \"%s\" that does not have a product code", engine.cmdDesc(), app)
-	}
-
-	// Prepare the command arguments.
-	args := engine.command.Definition.Args
-
-	// Handle app-based command types.
-	//
-	// TODO: Switch to the Microsoft Installer API:
-	// https://learn.microsoft.com/en-us/windows/win32/api/msi/nf-msi-msiinstallproductw
-	switch engine.command.Definition.Type {
-	case lbdeploy.CommandTypeMSIUninstallProductCode:
-		args = append([]string{"/x", string(appData.ProductCode), "/quiet", "/norestart"}, args...)
+		if len(engine.apps.Removal.ToUninstall) == 0 {
+			return fmt.Errorf("none of the applications identified by %s need to be uninstalled", engine.cmdDesc())
+		}
 	default:
 		return fmt.Errorf("%s uses a \"%s\" command type that is not recognized or is not suitable for app-based invocation", engine.cmdDesc(), engine.command.Definition.Type)
 	}
@@ -178,7 +154,44 @@ func (engine *commandEngine) InvokeApp(ctx context.Context) error {
 		return fmt.Errorf("failed to locate the Windows Installer executable: %w", err)
 	}
 
-	return engine.invoke(ctx, workingDir, execPath, args)
+	// Invoke an uninstall command for each app that is to be uninstalled.
+	for _, subject := range engine.apps.Removal.ToUninstall {
+		// Get information about the application from the deployment.
+		appData, exists := engine.deployment.Apps[subject.App]
+		if !exists {
+			return fmt.Errorf("%s refers to an application \"%s\" that is not defined in the \"%s\" deployment", engine.cmdDesc(), subject.App, engine.deployment.ID)
+		}
+
+		// Make sure a product code is defined for this application.
+		productCode := appData.FindProductCode(subject)
+		if productCode == "" {
+			return fmt.Errorf("%s refers to an application \"%s\" that does not have a product code", engine.cmdDesc(), subject.App)
+		}
+
+		// Limit the evaluation to the app we are about to uninstall.
+		evaluation := engine.apps
+		evaluation.Removal.ToUninstall = lbdeploy.AppList{subject}
+
+		// Prepare the command arguments.
+		args := engine.command.Definition.Args
+
+		// Handle app-based command types.
+		//
+		// TODO: Switch to the Microsoft Installer API:
+		// https://learn.microsoft.com/en-us/windows/win32/api/msi/nf-msi-msiinstallproductw
+		switch engine.command.Definition.Type {
+		case lbdeploy.CommandTypeMSIUninstallProductCode:
+			args = append([]string{"/x", string(productCode), "/quiet", "/norestart"}, args...)
+		default:
+			return fmt.Errorf("%s uses a \"%s\" command type that is not recognized or is not suitable for app-based invocation", engine.cmdDesc(), engine.command.Definition.Type)
+		}
+
+		if err := engine.invoke(ctx, evaluation, workingDir, execPath, args); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (engine *commandEngine) invokePath(ctx context.Context, execPath string) (err error) {
@@ -197,7 +210,7 @@ func (engine *commandEngine) invokePath(ctx context.Context, execPath string) (e
 	// https://learn.microsoft.com/en-us/windows/win32/api/msi/nf-msi-msiinstallproductw
 	switch engine.command.Definition.Type {
 	case lbdeploy.CommandTypeExe, "":
-		return engine.invoke(ctx, workingDir, execPath, args)
+		return engine.invoke(ctx, engine.apps, workingDir, execPath, args)
 	case lbdeploy.CommandTypeMSIInstall:
 		args = append([]string{"/i", execPath, "/quiet", "/norestart"}, args...)
 	case lbdeploy.CommandTypeMSIUpdate:
@@ -214,10 +227,19 @@ func (engine *commandEngine) invokePath(ctx context.Context, execPath string) (e
 		return fmt.Errorf("failed to locate the Windows Installer executable: %w", err)
 	}
 
-	return engine.invoke(ctx, workingDir, execPath, args)
+	return engine.invoke(ctx, engine.apps, workingDir, execPath, args)
 }
 
-func (engine *commandEngine) invoke(ctx context.Context, workingDir, execPath string, args []string) (err error) {
+// invoke performs the actual command invocation by executing the given
+// executable path with the provided arguments. The working directory of
+// the executed command will be set to the one provided. It records
+// CommandStarted and CommandStopped events.
+//
+// The method uses the provided apps evaluation instead of the engine.apps
+// field. This allows the InvokeApp method to pass in an app evaluation
+// that differs from engine.apps if necessary, which it will do if multiple
+// product codes are being uninstalled by one command.
+func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvaluation, workingDir, execPath string, args []string) (err error) {
 	// Check for cancellation before starting the command.
 	if err := ctx.Err(); err != nil {
 		return err
@@ -254,10 +276,11 @@ func (engine *commandEngine) invoke(ctx context.Context, workingDir, execPath st
 		ActionType:           engine.action.Definition.Type,
 		Package:              engine.pkg.ID,
 		Command:              engine.command.ID,
+		CommandMode:          engine.command.Definition.Mode,
 		CommandLine:          cmd.String(),
 		WorkingDirectory:     engine.command.Definition.WorkingDirectory,
 		WorkingDirectoryPath: workingDir,
-		Apps:                 engine.apps,
+		Apps:                 apps,
 	})
 
 	// Prepare a buffer to hold the combined command output.
@@ -304,7 +327,7 @@ func (engine *commandEngine) invoke(ctx context.Context, workingDir, execPath st
 
 	// Evaluate the effectiveness of any expected application changes.
 	ae := NewAppEngine(engine.deployment)
-	appSummary, appSummaryErr := ae.SummarizeAppChanges(engine.apps)
+	appSummary, appSummaryErr := ae.SummarizeAppChanges(apps)
 	if appSummaryErr != nil {
 		appSummaryErr = fmt.Errorf("failed to determine the state of installed applications after the command was invoked: %w", appSummaryErr)
 		if err == nil {
@@ -320,12 +343,13 @@ func (engine *commandEngine) invoke(ctx context.Context, workingDir, execPath st
 		ActionType:           engine.action.Definition.Type,
 		Package:              engine.pkg.ID,
 		Command:              engine.command.ID,
+		CommandMode:          engine.command.Definition.Mode,
 		CommandLine:          cmd.String(),
 		Result:               result,
 		Output:               bytesconv.DecodeString(output.Bytes()),
 		WorkingDirectory:     engine.command.Definition.WorkingDirectory,
 		WorkingDirectoryPath: workingDir,
-		AppsBefore:           engine.apps,
+		AppsBefore:           apps,
 		AppsAfter:            appSummary,
 		Started:              started,
 		Stopped:              stopped,

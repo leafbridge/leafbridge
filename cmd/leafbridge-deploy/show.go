@@ -104,12 +104,12 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 
 	// Print the status of each application.
 	for _, id := range ids {
-		installed, installedErr := ae.IsInstalled(id)
-		if installedErr == nil {
-			if installed && !cmd.Installed && !cmd.showAll() {
+		status, statusErr := ae.Status(id)
+		if statusErr == nil {
+			if status.Installed && !cmd.Installed && !cmd.showAll() {
 				continue
 			}
-			if !installed && !cmd.Missing && !cmd.showAll() {
+			if !status.Installed && !cmd.Missing && !cmd.showAll() {
 				continue
 			}
 		}
@@ -143,14 +143,14 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				info = append(info, string(app.Architecture))
 			}
 
-			if installedErr != nil {
-				info = append(info, installedErr.Error())
-			} else if !installed {
+			if statusErr != nil {
+				info = append(info, statusErr.Error())
+			} else if !status.Installed {
 				info = append(info, "Missing")
 			} else {
 				info = append(info, "Installed")
 
-				if version, err := ae.Version(id); err == nil && version != "" {
+				for _, version := range status.Versions.List() {
 					var notes []string
 					if release, found := app.Releases.FindVersion(version); found {
 						if release.Date != "" {
@@ -161,9 +161,9 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 						}
 					}
 					if len(notes) > 0 {
-						info = append(info, fmt.Sprintf("v%s (%s)", version.Canonical(), strings.Join(notes, ", ")))
+						info = append(info, fmt.Sprintf("v%s (%s)", version, strings.Join(notes, ", ")))
 					} else {
-						info = append(info, fmt.Sprintf("v%s", version.Canonical()))
+						info = append(info, fmt.Sprintf("v%s", version))
 					}
 				}
 			}

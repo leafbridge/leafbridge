@@ -75,10 +75,10 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 	// review the app evaluation to determine whether any application changes
 	// are anticpated.
 	if len(commandDefinition.Installs) > 0 || len(commandDefinition.Uninstalls) > 0 {
-		if !appEvaluation.ActionsNeeded() {
+		if !appEvaluation.ActionsNeeded(commandDefinition.Mode) {
 			// If all app installs and uninstalls are already in effect,
 			// and command invocation isn't forced, skip this command.
-			if !engine.force && !engine.action.Definition.Force {
+			if (!engine.force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Deployment:  engine.deployment.ID,
@@ -87,6 +87,7 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 					ActionType:  engine.action.Definition.Type,
 					Package:     engine.pkg.ID,
 					Command:     command,
+					CommandMode: commandDefinition.Mode,
 					Apps:        appEvaluation,
 				})
 

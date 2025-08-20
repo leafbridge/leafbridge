@@ -35,6 +35,14 @@ func (t CommandType) IsMSI() bool {
 	}
 }
 
+// CommandMode identifies the operating mode of a command.
+type CommandMode string
+
+// Command modes.
+const (
+	CommandModeUpdate = "update"
+)
+
 // CommandMap defines a set of commands that can be issued, mapped by their
 // identifiers.
 type CommandMap map[CommandID]Command
@@ -52,10 +60,13 @@ type ExecutableID string
 // TODO: Support variable expansion when building arguments.
 type Command struct {
 	// Installs is a list of applications that the command installs.
-	Installs AppList `json:"installs,omitzero"`
+	Installs AppList `json:"installs,omitempty"`
 
-	// Uninstalls is a list of applicaitons that the command uninstalls.
-	Uninstalls AppList `json:"uninstalls,omitzero"`
+	// Uninstalls is a list of applications that the command uninstalls.
+	Uninstalls AppCriteriaList `json:"uninstalls,omitempty"`
+
+	// Mode is the operating mode of the command.
+	Mode CommandMode `json:"mode,omitempty"`
 
 	// Type is the type of command to be run.
 	Type CommandType `json:"type,omitempty"`

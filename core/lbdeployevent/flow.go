@@ -43,7 +43,7 @@ func (e FlowStarted) Message() string {
 
 	builder.WritePrimary(string(e.Deployment))
 	builder.WritePrimary(string(e.Flow))
-	builder.WriteStandard(fmt.Sprintf("Starting."))
+	builder.WriteStandard("Starting.")
 
 	return builder.String()
 }

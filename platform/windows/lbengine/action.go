@@ -184,12 +184,12 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 
 	// If the command declares that it installs or uninstalls something,
 	// review the app evaluation to determine whether any application changes
-	// are anticpated.
+	// are anticipated.
 	if len(command.Definition.Installs) > 0 || len(command.Definition.Uninstalls) > 0 {
-		if !appEvaluation.ActionsNeeded() {
+		if !appEvaluation.ActionsNeeded(command.Definition.Mode) {
 			// If all app installs and uninstalls are already in effect,
 			// and command invocation isn't forced, skip this command.
-			if !engine.force && !engine.action.Definition.Force {
+			if (!engine.force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Deployment:  engine.deployment.ID,
@@ -197,6 +197,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 					ActionIndex: engine.action.Index,
 					ActionType:  engine.action.Definition.Type,
 					Command:     command.ID,
+					CommandMode: command.Definition.Mode,
 					Apps:        appEvaluation,
 				})
 
@@ -218,7 +219,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 	}
 
 	// Special handling for commands that apply to an application's product
-	// code, and not to a provided executable or installer file.
+	// codes, and not to a provided executable or installer file.
 	if command.Definition.Type.IsAppBased() {
 		return ce.InvokeApp(ctx)
 	}

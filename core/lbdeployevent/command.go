@@ -28,6 +28,7 @@ type CommandSkipped struct {
 	ActionType  lbdeploy.ActionType
 	Package     lbdeploy.PackageID
 	Command     lbdeploy.CommandID
+	CommandMode lbdeploy.CommandMode
 	Apps        lbdeploy.AppEvaluation
 }
 
@@ -55,11 +56,20 @@ func (e CommandSkipped) Message() string {
 		builder.WritePrimary(fmt.Sprintf("%s.%s", e.Package, e.Command))
 	}
 	builder.WriteStandard("Skipped command")
-	if len(e.Apps.AlreadyInstalled) > 0 {
-		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.AlreadyInstalled), fieldformat.Label("already installed"))
+
+	if len(e.Apps.Installation.AlreadyInstalled) > 0 {
+		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Installation.AlreadyInstalled), fieldformat.Label("already installed"))
 	}
-	if len(e.Apps.AlreadyUninstalled) > 0 {
-		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.AlreadyUninstalled), fieldformat.Label("already uninstalled"))
+	if len(e.Apps.Installation.Superseded) > 0 {
+		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Installation.Superseded), fieldformat.Label("newer version installed"))
+	}
+	if e.CommandMode == lbdeploy.CommandModeUpdate {
+		if len(e.Apps.Installation.Missing) > 0 {
+			builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Installation.Missing), fieldformat.Label("not installed"))
+		}
+	}
+	if len(e.Apps.Removal.Missing) > 0 {
+		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Removal.Missing), fieldformat.Label("already uninstalled"))
 	}
 
 	return builder.String()
@@ -82,13 +92,13 @@ func (e CommandSkipped) Attrs() []slog.Attr {
 	if e.Package != "" {
 		attrs = append(attrs, slog.String("package", string(e.Package)))
 	}
-	attrs = append(attrs, slog.Group("command", "id", e.Command))
+	if e.CommandMode != "" {
+		attrs = append(attrs, slog.Group("command", "id", e.Command, "mode", e.CommandMode))
+	} else {
+		attrs = append(attrs, slog.Group("command", "id", e.Command))
+	}
 	if !e.Apps.IsZero() {
-		attrs = append(attrs, slog.Group("affected-apps",
-			"already-installed", e.Apps.AlreadyInstalled,
-			"already-uninstalled", e.Apps.AlreadyUninstalled,
-			"to-install", e.Apps.ToInstall,
-			"to-uninstall", e.Apps.ToUninstall))
+		attrs = append(attrs, appEvaluationAttr("affected-apps", e.Apps))
 	}
 	return attrs
 }
@@ -101,6 +111,7 @@ type CommandStarted struct {
 	ActionType           lbdeploy.ActionType
 	Package              lbdeploy.PackageID
 	Command              lbdeploy.CommandID
+	CommandMode          lbdeploy.CommandMode
 	CommandLine          string
 	WorkingDirectory     lbdeploy.DirectoryResourceID
 	WorkingDirectoryPath string
@@ -130,13 +141,13 @@ func (e CommandStarted) Message() string {
 	} else {
 		builder.WritePrimary(fmt.Sprintf("%s.%s", e.Package, e.Command))
 	}
-	switch installs, uninstalls := len(e.Apps.ToInstall), len(e.Apps.ToUninstall); {
+	switch installs, uninstalls := len(e.Apps.Installation.ToInstall), len(e.Apps.Removal.ToUninstall); {
 	case installs > 0 && uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to install %s and uninstall %s", e.Apps.ToInstall, e.Apps.ToUninstall))
+		builder.WritePrimary(fmt.Sprintf("Starting command to install %s and uninstall %s", e.Apps.Installation.ToInstall, e.Apps.Removal.ToUninstall))
 	case installs > 0 && uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to install %s", e.Apps.ToInstall))
+		builder.WritePrimary(fmt.Sprintf("Starting command to install %s", e.Apps.Installation.ToInstall))
 	case uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to uninstall %s", e.Apps.ToUninstall))
+		builder.WritePrimary(fmt.Sprintf("Starting command to uninstall %s", e.Apps.Removal.ToUninstall))
 	default:
 		builder.WritePrimary("Starting command")
 	}
@@ -169,16 +180,16 @@ func (e CommandStarted) Attrs() []slog.Attr {
 	if e.Package != "" {
 		attrs = append(attrs, slog.String("package", string(e.Package)))
 	}
-	attrs = append(attrs, slog.Group("command", "id", e.Command, "invocation", e.CommandLine))
+	if e.CommandMode != "" {
+		attrs = append(attrs, slog.Group("command", "id", e.Command, "mode", e.CommandMode, "invocation", e.CommandLine))
+	} else {
+		attrs = append(attrs, slog.Group("command", "id", e.Command, "invocation", e.CommandLine))
+	}
 	if e.WorkingDirectory != "" || e.WorkingDirectoryPath != "" {
 		attrs = append(attrs, slog.Group("working-directory", "id", e.WorkingDirectory, "path", e.WorkingDirectoryPath))
 	}
 	if !e.Apps.IsZero() {
-		attrs = append(attrs, slog.Group("affected-apps",
-			"already-installed", e.Apps.AlreadyInstalled,
-			"already-uninstalled", e.Apps.AlreadyUninstalled,
-			"to-install", e.Apps.ToInstall,
-			"to-uninstall", e.Apps.ToUninstall))
+		attrs = append(attrs, appEvaluationAttr("affected-apps", e.Apps))
 	}
 	return attrs
 }
@@ -191,6 +202,7 @@ type CommandStopped struct {
 	ActionType           lbdeploy.ActionType
 	Package              lbdeploy.PackageID
 	Command              lbdeploy.CommandID
+	CommandMode          lbdeploy.CommandMode
 	CommandLine          string
 	Result               lbdeploy.CommandResult
 	Output               string
@@ -234,7 +246,7 @@ func (e CommandStopped) Message() string {
 	} else if err := e.AppsAfter.Err(); err != nil {
 		builder.WriteStandard(fmt.Sprintf("Completed command but %s", err))
 	} else {
-		builder.WriteStandard(fmt.Sprintf("Completed command"))
+		builder.WriteStandard("Completed command")
 	}
 	builder.WriteNote(e.Duration().Round(time.Millisecond * 10).String())
 	if e.Result.ExitCode != 0 {
@@ -285,8 +297,12 @@ func (e CommandStopped) Attrs() []slog.Attr {
 	if e.Package != "" {
 		attrs = append(attrs, slog.String("package", string(e.Package)))
 	}
+	if e.CommandMode != "" {
+		attrs = append(attrs, slog.Group("command", "id", e.Command, "mode", e.CommandMode, "invocation", e.CommandLine))
+	} else {
+		attrs = append(attrs, slog.Group("command", "id", e.Command, "invocation", e.CommandLine))
+	}
 	attrs = append(attrs,
-		slog.Group("command", "id", e.Command, "invocation", e.CommandLine),
 		slog.Time("started", e.Started),
 		slog.Time("stopped", e.Stopped),
 	)
@@ -294,18 +310,10 @@ func (e CommandStopped) Attrs() []slog.Attr {
 		attrs = append(attrs, slog.Group("working-directory", "id", e.WorkingDirectory, "path", e.WorkingDirectoryPath))
 	}
 	if !e.AppsBefore.IsZero() {
-		attrs = append(attrs, slog.Group("affected-apps-before",
-			"already-installed", e.AppsBefore.AlreadyInstalled,
-			"already-uninstalled", e.AppsBefore.AlreadyUninstalled,
-			"to-install", e.AppsBefore.ToInstall,
-			"to-uninstall", e.AppsBefore.ToUninstall))
+		attrs = append(attrs, appEvaluationAttr("affected-apps-before", e.AppsBefore))
 	}
 	if !e.AppsAfter.IsZero() {
-		attrs = append(attrs, slog.Group("affected-apps-after",
-			"installed", e.AppsAfter.Installed,
-			"uninstalled", e.AppsAfter.Uninstalled,
-			"still-not-installed", e.AppsAfter.StillNotInstalled,
-			"still-not-uninstalled", e.AppsAfter.StillNotUninstalled))
+		attrs = append(attrs, appSummaryAttr("affected-apps-after", e.AppsAfter))
 	}
 	if e.Output != "" {
 		attrs = append(attrs, slog.String("output", e.Output))
@@ -323,4 +331,28 @@ func (e CommandStopped) Attrs() []slog.Attr {
 // Duration returns the duration of the action.
 func (e CommandStopped) Duration() time.Duration {
 	return e.Stopped.Sub(e.Started)
+}
+
+func appEvaluationAttr(key string, evaluation lbdeploy.AppEvaluation) slog.Attr {
+	return slog.Group(key,
+		slog.Group("installation",
+			"to-install", evaluation.Installation.ToInstall,
+			"already-installed", evaluation.Installation.AlreadyInstalled,
+			"superseded", evaluation.Installation.Superseded,
+			"outdated", evaluation.Installation.Outdated),
+		slog.Group("removal",
+			"to-uninstall", evaluation.Removal.ToUninstall,
+			"already-uninstalled", evaluation.Removal.Missing),
+	)
+}
+
+func appSummaryAttr(key string, summary lbdeploy.AppSummary) slog.Attr {
+	return slog.Group(key,
+		slog.Group("installation",
+			"installed", summary.Installation.Installed,
+			"still-not-installed", summary.Installation.StillNotInstalled),
+		slog.Group("removal",
+			"uninstalled", summary.Removal.Uninstalled,
+			"still-not-uninstalled", summary.Removal.StillNotUninstalled),
+	)
 }

@@ -72,7 +72,7 @@ func (v Value) Int64() int64 {
 
 // String returns the value as a string.
 //
-// If the underlying data type is not a string, a string represenation of
+// If the underlying data type is not a string, a string representation of
 // the value is returned.
 func (v Value) String() string {
 	switch data := v.data.(type) {
