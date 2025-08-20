@@ -10,6 +10,10 @@ type VersionSet map[Version]struct{}
 
 // Contains returns true if the given version is present in the set.
 func (set VersionSet) Contains(version Version) bool {
+	if len(set) == 0 {
+		return false
+	}
+
 	version = version.Canonical()
 
 	// Fast path for exact matches.
@@ -26,6 +30,19 @@ func (set VersionSet) Contains(version Version) bool {
 	}
 
 	return false
+}
+
+// Max returns the highest version present in the set.
+//
+// If the set is empty, it returns an empty version.
+func (set VersionSet) Max() Version {
+	var max Version
+	for version := range set {
+		if max == "" || CompareVersions(version, max) > 0 {
+			max = version
+		}
+	}
+	return max
 }
 
 // Add adds the given version to the set. If it is already present, it takes

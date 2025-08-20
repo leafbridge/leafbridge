@@ -27,9 +27,18 @@ func TestVersionSet(t *testing.T) {
 	if !set.Contains("2") || !set.Contains("2.0.0.0.0") {
 		t.Fatalf("the set should contain the version \"2\"")
 	}
+	if set.Max() != "2" {
+		t.Fatalf("the set's maximum value should be \"2\"")
+	}
 	set.Add("5.2.1")
+	if set.Max() != "5.2.1" {
+		t.Fatalf("the set's maximum value should be \"5.2.1\"")
+	}
 	set.Add("27.2")
 	set.Add("2.2.1.5")
+	if set.Max() != "27.2" {
+		t.Fatalf("the set's maximum value should be \"27.2\"")
+	}
 	var values []string
 	for _, version := range set.List() {
 		values = append(values, string(version))
