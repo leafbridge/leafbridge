@@ -17,6 +17,8 @@ type versionRangeFixture struct {
 }
 
 var versionRangeFixtures = []versionRangeFixture{
+	{Version: "", RangeString: "", Range: datatype.VersionRange{}, Included: true},
+	{Version: "", RangeString: "<=1", Range: datatype.VersionRange{End: "1"}, Included: false},
 	{Version: "1.0.0", RangeString: "", Range: datatype.VersionRange{}, Included: true},
 	{Version: "1.0.0", RangeString: ">=0.9.0", Range: datatype.VersionRange{Start: "0.9.0"}, Included: true},
 	{Version: "1.0.0", RangeString: ">=1.0.0", Range: datatype.VersionRange{Start: "1.0.0"}, Included: true},

@@ -36,7 +36,16 @@ type versionRangeEncoding struct {
 }
 
 // Includes returns true if the version range includes v.
+//
+// If the version range does not specify a start or end, it returns true.
+// If v is empty, it returns false.
 func (r VersionRange) Includes(v Version) bool {
+	if r.IsZero() {
+		return true
+	}
+	if v == "" {
+		return false
+	}
 	if r.Start != "" {
 		switch CompareVersions(v, r.Start) {
 		case 0:
@@ -58,6 +67,12 @@ func (r VersionRange) Includes(v Version) bool {
 		}
 	}
 	return true
+}
+
+// IsZero returns true if the version range does not specify a start or
+// end version.
+func (v VersionRange) IsZero() bool {
+	return v.Start == "" && v.End == ""
 }
 
 // String returns a string representation of the version range in one of
