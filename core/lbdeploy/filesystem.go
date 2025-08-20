@@ -23,10 +23,11 @@ type DirectoryResourceID string
 // DirectoryType declares the type of a directory resource.
 type DirectoryType string
 
-// FileResource describes a directory resource.
+// DirectoryResource describes a directory resource.
 type DirectoryResource struct {
-	Location DirectoryResourceID // A well-known directory, or another directory ID.
-	Path     string              // Relative to location
+	Location DirectoryResourceID `json:"location"`         // A well-known directory, or another directory ID.
+	Path     string              `json:"path"`             // Relative to location.
+	Symlink  bool                `json:"symlink,omitzero"` // Is the directory expected to be a symlink?
 }
 
 // DirRef is a resolved reference to a directory on the local file system.
@@ -60,8 +61,8 @@ type FileResourceID string
 
 // FileResource describes a file resource.
 type FileResource struct {
-	Location DirectoryResourceID // A well-known directory, or another directory ID.
-	Path     string              // Relative to location
+	Location DirectoryResourceID `json:"location"` // A well-known directory, or another directory ID.
+	Path     string              `json:"path"`     // Relative to location
 }
 
 // FileRef is a resolved reference to a file on the local file system.
