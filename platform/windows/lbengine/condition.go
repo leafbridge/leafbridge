@@ -1,8 +1,9 @@
 package lbengine
 
 import (
+	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 
 	"github.com/gentlemanautomaton/winobj/winmutex"
 	"github.com/leafbridge/leafbridge/core/idset"
@@ -145,7 +146,7 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			}
 			key, err := localregistry.OpenKey(ref)
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, fs.ErrNotExist) {
 					return false, nil
 				}
 				return false, conditionSelfError(id, condition, err)
@@ -160,7 +161,7 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			}
 			key, err := localregistry.OpenKey(ref.Key())
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, fs.ErrNotExist) {
 					return false, nil
 				}
 				return false, conditionSelfError(id, condition, err)
@@ -190,7 +191,7 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			}
 			dir, err := localfs.OpenDir(ref)
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, fs.ErrNotExist) {
 					return false, nil
 				}
 				return false, conditionSelfError(id, condition, err)
@@ -205,7 +206,7 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			}
 			dir, err := localfs.OpenDir(ref.Dir())
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, fs.ErrNotExist) {
 					return false, nil
 				}
 				return false, conditionSelfError(id, condition, err)

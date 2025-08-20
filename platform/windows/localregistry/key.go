@@ -3,7 +3,7 @@ package localregistry
 import (
 	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"strconv"
 
@@ -122,7 +122,7 @@ func (key Key) Close() error {
 func (key Key) HasValue(name string) (bool, error) {
 	_, _, err := key.key.GetValue(name, nil)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return false, nil
 		}
 		return false, err

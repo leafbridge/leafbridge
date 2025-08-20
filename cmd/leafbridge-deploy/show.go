@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"slices"
@@ -358,7 +360,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					key, err := localregistry.OpenKey(ref)
 					if err != nil {
 						fmt.Printf("      Path:        %s\n", path)
-						if os.IsNotExist(err) {
+						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
 							fmt.Printf("      Status:      (%v)\n", err)
@@ -407,7 +409,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					if err != nil {
 						fmt.Printf("      Key:         %s\n", path)
 						fmt.Printf("      Name:        %s\n", ref.Name)
-						if os.IsNotExist(err) {
+						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
 							fmt.Printf("      Status:      (%v)\n", err)
@@ -480,7 +482,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					dir, err := localfs.OpenDir(ref)
 					if err != nil {
 						fmt.Printf("      Path:        %s\n", path)
-						if os.IsNotExist(err) {
+						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
 							fmt.Printf("      Status:      (%v)\n", err)
@@ -526,7 +528,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					// Attempt to open the parent directory.
 					dir, err := localfs.OpenDir(ref.Dir())
 					if err != nil {
-						if os.IsNotExist(err) {
+						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
 							fmt.Printf("      Status:      (%v)\n", err)
@@ -538,7 +540,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					// Stat the file path.
 					fi, err := dir.System().Stat(ref.FilePath)
 					if err != nil {
-						if os.IsNotExist(err) {
+						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
 							fmt.Printf("      Status:      (%v)\n", err)

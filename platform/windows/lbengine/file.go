@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"time"
 
@@ -77,7 +77,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		// If there is an existing file, stop.
 		fi, err := destDir.System().Stat(destFileRef.FilePath)
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("unable to evaluate the destination file: %w", err)
 			}
 		} else if fi.Mode().IsRegular() {
@@ -184,7 +184,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		// Open the root above the destination file.
 		fileDir, err := localfs.OpenDir(fileRef.Dir())
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return nil // The parent directory does not exist.
 			}
 			return fmt.Errorf("unable to open the file's directory: %w", err)
@@ -203,7 +203,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		// something other than a regular file, stop.
 		fi, err := fileDir.System().Stat(fileRef.FilePath)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return nil // The file does not exist.
 			}
 			return fmt.Errorf("unable to evaluate the file to be deleted: %w", err)

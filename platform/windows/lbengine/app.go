@@ -1,8 +1,9 @@
 package lbengine
 
 import (
+	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 
 	"github.com/gentlemanautomaton/winapp/appcode"
 	"github.com/gentlemanautomaton/winapp/unpackaged"
@@ -97,7 +98,7 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 		// want, or store these properties somewhere useful.
 		properties, err := view.Get(unpackaged.AppID(definition.ProductCode))
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !errors.Is(err, fs.ErrNotExist) {
 				return status, fmt.Errorf("the status of the \"%s\" app could not be determined: the data for the \"%s\" product code could not be retrieved from the application registry: %w", app, definition.ProductCode, err)
 			}
 		} else {
@@ -158,7 +159,7 @@ func (engine AppEngine) getVersionFromRegistry(resource lbdeploy.RegistryValueRe
 	}
 	key, err := localregistry.OpenKey(ref.Key())
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return "", nil
 		}
 		return "", err
@@ -166,7 +167,7 @@ func (engine AppEngine) getVersionFromRegistry(resource lbdeploy.RegistryValueRe
 	defer key.Close()
 	value, err := key.GetValue(ref.Name, ref.Type)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return "", nil
 		}
 		return "", err

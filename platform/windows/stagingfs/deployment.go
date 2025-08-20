@@ -1,6 +1,8 @@
 package stagingfs
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -98,7 +100,7 @@ func openOrCreateRootInRoot(parent *os.Root, name string, perm os.FileMode) (*os
 	}
 
 	// If the error is anything other than "not found", return it.
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 
