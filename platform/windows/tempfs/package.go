@@ -25,9 +25,11 @@ type Options struct {
 // It is a temporary directory created via os.MkdirTemp. Its name will have
 // "leafbridge-" as a prefix.
 type ExtractionDir struct {
-	path string
-	dir  *os.Root
-	opts Options
+	name   string
+	path   string
+	parent *os.Root
+	dir    *os.Root
+	opts   Options
 }
 
 // OpenExtractionDirForPackage opens a temporary directory to receive
@@ -50,7 +52,7 @@ func OpenExtractionDirForPackage(pkg lbdeploy.PackageContent, opts Options) (Ext
 	// Sanity check the directory path to make sure it conforms to our
 	// expectations. If it doesn't, then return an error.
 	//
-	// Note that We might call os.RemoveAll() on the path later, and we really
+	// Note that We might call RemoveAll() on the path later, and we really
 	// don't want to make that call on an unintended path, especially when
 	// operating with SYSTEM privileges.
 	{
@@ -60,17 +62,68 @@ func OpenExtractionDirForPackage(pkg lbdeploy.PackageContent, opts Options) (Ext
 		}
 	}
 
-	// Open the root of the newly created temp directory.
-	dir, err := os.OpenRoot(dirPath)
+	// Keep track of whether this call succeeds. This is referenced by
+	// deferred functions to close open file handles in the case of failure.
+	success := false
+
+	// Get the path to the parent directory.
+	parentPath := filepath.Dir(dirPath)
+
+	// Get the name of the temp directory that was created.
+	dirName := filepath.Base(dirPath)
+
+	// Open the parent of the newly created temp directory as its own root.
+	//
+	// Having a separate root for the parent will be useful later, as it
+	// will let us call parent.RemoveAll() when we close and delete the
+	// temp directory.
+	parent, err := os.OpenRoot(parentPath)
 	if err != nil {
 		return ExtractionDir{}, err
 	}
+	defer func() {
+		if !success {
+			parent.Close()
+		}
+	}()
+
+	// Open the root of the newly created temp directory.
+	dir, err := parent.OpenRoot(dirName)
+	if err != nil {
+		return ExtractionDir{}, err
+	}
+	defer func() {
+		if !success {
+			dir.Close()
+		}
+	}()
+
+	// Verify that the directory we opened via the parent is in fact the
+	// temp directory that we created.
+	fi1, err := parent.Stat(dirName)
+	if err != nil {
+		return ExtractionDir{}, fmt.Errorf("failed to stat the temporary directory \"%s\" via its parent: %w", dirPath, err)
+	}
+
+	fi2, err := os.Stat(dirPath)
+	if err != nil {
+		return ExtractionDir{}, fmt.Errorf("failed to stat the temporary directory \"%s\" via its absolute path: %w", dirPath, err)
+	}
+
+	if !os.SameFile(fi1, fi2) {
+		return ExtractionDir{}, fmt.Errorf("failed to open the temporary directory \"%s\": the opened directory is not the same as the one that was created", dirPath)
+	}
+
+	// Indicate success so that we don't close the open file handles.
+	success = true
 
 	// Return the extraction directory.
 	return ExtractionDir{
-		path: dirPath,
-		dir:  dir,
-		opts: opts,
+		name:   dirName,
+		path:   dirPath,
+		parent: parent,
+		dir:    dir,
+		opts:   opts,
 	}, nil
 }
 
@@ -97,17 +150,10 @@ func (d ExtractionDir) MkdirAll(path string) error {
 		return fmt.Errorf("localization of the directory path failed: %w", err)
 	}
 
-	// Join the relative path to the absolute path of the extraciton
-	// directory.
-	dirPath := filepath.Join(d.path, localized)
-
 	// Create the directory and any of it ancestors that don't already exist.
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		return fmt.Errorf("failed to create directory path: %w", err)
+	if err := d.dir.MkdirAll(localized, 0755); err != nil {
+		return fmt.Errorf("failed to create directory path within \"%s\": %w", d.path, err)
 	}
-
-	// TODO: Use d.dir.MkdirAll() when Go 1.25 is released, which should
-	// include it.
 
 	return nil
 }
@@ -198,15 +244,15 @@ func (d ExtractionDir) WriteFile(path string, r io.Reader, modified time.Time) (
 func (d ExtractionDir) Close() error {
 	// Simple closure.
 	if !d.opts.DeleteOnClose {
-		return d.dir.Close()
+		return errors.Join(d.dir.Close(), d.parent.Close())
 	}
 
-	// Close and delete.
+	// Close and delete the temp directory.
 	err1 := d.dir.Close()
-	err2 := os.RemoveAll(d.path)
+	err2 := d.parent.RemoveAll(d.name)
 
-	// TODO: Use d.dir.RemoveAll() when Go 1.25 is released, which should
-	// include it.
+	// Close the parent directory.
+	err3 := d.parent.Close()
 
-	return errors.Join(err1, err2)
+	return errors.Join(err1, err2, err3)
 }
