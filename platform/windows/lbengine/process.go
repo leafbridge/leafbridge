@@ -31,7 +31,7 @@ func buildProcessFilter(match lbdeploy.ProcessMatch) (winproc.Filter, error) {
 		for i, submatch := range match.Any {
 			subfilter, err := buildProcessFilter(submatch)
 			if err != nil {
-				return nil, fmt.Errorf("Match Any [%d]: %w", i, err)
+				return nil, fmt.Errorf("match any [%d]: %w", i, err)
 			}
 			filters = append(filters, subfilter)
 		}
@@ -43,7 +43,7 @@ func buildProcessFilter(match lbdeploy.ProcessMatch) (winproc.Filter, error) {
 		for i, submatch := range match.All {
 			subfilter, err := buildProcessFilter(submatch)
 			if err != nil {
-				return nil, fmt.Errorf("Match All [%d]: %w", i, err)
+				return nil, fmt.Errorf("match all [%d]: %w", i, err)
 			}
 			filters = append(filters, subfilter)
 		}
