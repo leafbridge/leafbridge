@@ -65,9 +65,6 @@ type Command struct {
 	// Uninstalls is a list of applications that the command uninstalls.
 	Uninstalls AppCriteriaList `json:"uninstalls,omitempty"`
 
-	// Mode is the operating mode of the command.
-	Mode CommandMode `json:"mode,omitempty"`
-
 	// Type is the type of command to be run.
 	Type CommandType `json:"type,omitempty"`
 

@@ -162,7 +162,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		}
 
 		// Execute the package command via the package engine.
-		return pe.InvokeCommand(ctx, engine.action.Definition.Command)
+		return pe.InvokeCommand(ctx, engine.action.Definition.Command, engine.action.Definition.Mode)
 	}
 
 	// Look up the command by its ID.
@@ -172,7 +172,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		if !found {
 			return fmt.Errorf("the \"%s\" command does not exist within the \"%s\" deployment", engine.action.Definition.Command, engine.deployment.ID)
 		}
-		command = commandData{ID: engine.action.Definition.Command, Definition: definition}
+		command = commandData{ID: engine.action.Definition.Command, Definition: definition, Mode: engine.action.Definition.Mode}
 	}
 
 	// Determine whether any app changes are anticipated.
@@ -186,7 +186,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 	// review the app evaluation to determine whether any application changes
 	// are anticipated.
 	if len(command.Definition.Installs) > 0 || len(command.Definition.Uninstalls) > 0 {
-		if !appEvaluation.ActionsNeeded(command.Definition.Mode) {
+		if !appEvaluation.ActionsNeeded(command.Mode) {
 			// If all app installs and uninstalls are already in effect,
 			// and command invocation isn't forced, skip this command.
 			if (!engine.force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
@@ -197,7 +197,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 					ActionIndex: engine.action.Index,
 					ActionType:  engine.action.Definition.Type,
 					Command:     command.ID,
-					CommandMode: command.Definition.Mode,
+					CommandMode: command.Mode,
 					Apps:        appEvaluation,
 				})
 

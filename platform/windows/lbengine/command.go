@@ -26,6 +26,7 @@ import (
 type commandData struct {
 	ID         lbdeploy.CommandID
 	Definition lbdeploy.Command
+	Mode       lbdeploy.CommandMode
 }
 
 // commandEngine manages invocation of a command.
@@ -276,7 +277,7 @@ func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvalua
 		ActionType:           engine.action.Definition.Type,
 		Package:              engine.pkg.ID,
 		Command:              engine.command.ID,
-		CommandMode:          engine.command.Definition.Mode,
+		CommandMode:          engine.command.Mode,
 		CommandLine:          cmd.String(),
 		WorkingDirectory:     engine.command.Definition.WorkingDirectory,
 		WorkingDirectoryPath: workingDir,
@@ -343,7 +344,7 @@ func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvalua
 		ActionType:           engine.action.Definition.Type,
 		Package:              engine.pkg.ID,
 		Command:              engine.command.ID,
-		CommandMode:          engine.command.Definition.Mode,
+		CommandMode:          engine.command.Mode,
 		CommandLine:          cmd.String(),
 		Result:               result,
 		Output:               bytesconv.DecodeString(output.Bytes()),

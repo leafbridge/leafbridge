@@ -50,10 +50,14 @@ func (e CommandSkipped) Message() string {
 	builder.WritePrimary(string(e.Flow))
 	builder.WritePrimary(strconv.Itoa(e.ActionIndex + 1))
 	builder.WritePrimary(string(e.ActionType))
+	modeSuffix := ""
+	if e.CommandMode == lbdeploy.CommandModeUpdate {
+		modeSuffix = " (updates only)"
+	}
 	if e.Package == "" {
-		builder.WritePrimary(string(e.Command))
+		builder.WritePrimary(fmt.Sprintf("%s%s", e.Command, modeSuffix))
 	} else {
-		builder.WritePrimary(fmt.Sprintf("%s.%s", e.Package, e.Command))
+		builder.WritePrimary(fmt.Sprintf("%s.%s%s", e.Package, e.Command, modeSuffix))
 	}
 	builder.WriteStandard("Skipped command")
 
@@ -67,9 +71,10 @@ func (e CommandSkipped) Message() string {
 		if len(e.Apps.Installation.Missing) > 0 {
 			builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Installation.Missing), fieldformat.Label("not installed"))
 		}
-	}
-	if len(e.Apps.Removal.Missing) > 0 {
-		builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Removal.Missing), fieldformat.Label("already uninstalled"))
+	} else {
+		if len(e.Apps.Removal.Missing) > 0 {
+			builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Removal.Missing), fieldformat.Label("already uninstalled"))
+		}
 	}
 
 	return builder.String()
