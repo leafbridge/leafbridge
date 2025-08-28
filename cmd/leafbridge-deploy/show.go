@@ -26,6 +26,7 @@ type ShowCmd struct {
 	Config     ShowConfigCmd     `kong:"cmd,help='Shows configuration loaded from a deployment configuration file.'"`
 	Apps       ShowAppsCmd       `kong:"cmd,help='Shows the installation status of applications for a deployment.'"`
 	Conditions ShowConditionsCmd `kong:"cmd,help='Shows the current conditions for a deployment.'"`
+	Variables  ShowVariablesCmd  `kong:"cmd,help='Shows the current variables for a deployment.'"`
 	Resources  ShowResourcesCmd  `kong:"cmd,help='Shows the relevant resources for a deployment.'"`
 }
 
@@ -242,6 +243,54 @@ func (cmd ShowConditionsCmd) Run(ctx context.Context) error {
 			fmt.Printf("    %s: %s%s\n", id, err, suffix)
 		} else {
 			fmt.Printf("    %s: %t%s\n", id, result, suffix)
+		}
+	}
+
+	return nil
+}
+
+// ShowVariablesCmd shows the current status of variables for a
+// LeafBridge deployment.
+type ShowVariablesCmd struct {
+	ConfigFile string `kong:"required,name='config-file',help='Path to a deployment file describing the deployment.'"`
+}
+
+// Run executes the LeafBridge show variables command.
+func (cmd ShowVariablesCmd) Run(ctx context.Context) error {
+	// Read the deployment file.
+	dep, err := loadDeployment(cmd.ConfigFile)
+	if err != nil {
+		return err
+	}
+
+	// Validate the dpeloyment.
+	if err := dep.Validate(); err != nil {
+		fmt.Printf("The deployment contains invalid configuration: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("---- %s (%s): Variables ----\n", dep.Name, cmd.ConfigFile)
+
+	// Prepare a variable engine.
+	ve := lbengine.NewVariableEngine(dep)
+
+	// Sort the variable IDs for a deterministic order.
+	ids := slices.Collect(maps.Keys(dep.Variables))
+	slices.Sort(ids)
+
+	// Print the status of each variable.
+	for _, id := range ids {
+		start := time.Now()
+		result, err := ve.Value(id)
+		duration := time.Since(start)
+		suffix := ""
+		if duration > time.Millisecond {
+			suffix = fmt.Sprintf(" (%s)", duration.Round(10*time.Microsecond))
+		}
+		if err != nil {
+			fmt.Printf("    %s: %s%s\n", id, err, suffix)
+		} else {
+			fmt.Printf("    %s: %s%s\n", id, result, suffix)
 		}
 	}
 
