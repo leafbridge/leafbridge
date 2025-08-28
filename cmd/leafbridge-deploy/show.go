@@ -10,6 +10,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gentlemanautomaton/winobj/winmutex"
 	"github.com/leafbridge/leafbridge/core/lbdeployevent"
@@ -106,7 +107,9 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 
 	// Print the status of each application.
 	for _, id := range ids {
+		start := time.Now()
 		status, statusErr := ae.Status(id)
+		duration := time.Since(start)
 		if statusErr == nil {
 			if status.Installed && !cmd.Installed && !cmd.showAll() {
 				continue
@@ -173,6 +176,10 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				}
 			}
 
+			if duration > time.Millisecond {
+				info = append(info, duration.Round(10*time.Microsecond).String())
+			}
+
 			if len(info) > 0 {
 				fmt.Printf("      Info:         %s\n", strings.Join(info, ", "))
 			}
@@ -224,11 +231,17 @@ func (cmd ShowConditionsCmd) Run(ctx context.Context) error {
 
 	// Print the status of each condition.
 	for _, id := range ids {
+		start := time.Now()
 		result, err := ce.Evaluate(id)
+		duration := time.Since(start)
+		suffix := ""
+		if duration > time.Millisecond {
+			suffix = fmt.Sprintf(" (%s)", duration.Round(10*time.Microsecond))
+		}
 		if err != nil {
-			fmt.Printf("    %s: %s\n", id, err)
+			fmt.Printf("    %s: %s%s\n", id, err, suffix)
 		} else {
-			fmt.Printf("    %s: %t\n", id, result)
+			fmt.Printf("    %s: %t%s\n", id, result, suffix)
 		}
 	}
 
