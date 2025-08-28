@@ -66,8 +66,9 @@ func (app Application) FindProductCode(subject AppVersion) ProductCode {
 // AppDetection describes how to detect the presence of an installed
 // application and how to determine what version is installed.
 type AppDetection struct {
-	Present ConditionID             `json:"present,omitempty"`
-	Version RegistryValueResourceID `json:"version,omitempty"`
+	Running ConditionID `json:"running,omitempty"`
+	Present ConditionID `json:"present,omitempty"`
+	Version VariableID  `json:"version,omitempty"`
 }
 
 // AppReleaseDetection describes how to detect the presence of a specific
@@ -308,6 +309,7 @@ func (m AppStatusMap) EvaluateAppRemoval(list AppCriteriaList) (evaluation AppRe
 // installed.
 type AppStatus struct {
 	Installed bool                `json:"installed"`
+	Running   bool                `json:"running"`
 	Versions  datatype.VersionSet `json:"versions,omitempty"`
 }
 

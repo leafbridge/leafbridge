@@ -151,6 +151,9 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				info = append(info, "Missing")
 			} else {
 				info = append(info, "Installed")
+				if status.Running {
+					info = append(info, "Running")
+				}
 
 				for _, version := range status.Versions.List() {
 					var notes []string

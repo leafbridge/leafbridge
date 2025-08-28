@@ -37,7 +37,7 @@ func (engine ConditionEngine) Evaluate(condition lbdeploy.ConditionID) (bool, er
 	// Find the condition within the deployment.
 	definition, found := engine.deployment.Conditions[condition]
 	if !found {
-		return false, fmt.Errorf("the condition \"%s\" does not exist within the \"%s\" deployment", condition, engine.deployment.ID)
+		return false, fmt.Errorf("the \"%s\" condition does not exist within the \"%s\" deployment", condition, engine.deployment.ID)
 	}
 
 	return engine.evaluate(condition, definition, make(lbdeploy.ConditionCache), make(conditionSet))
@@ -46,7 +46,8 @@ func (engine ConditionEngine) Evaluate(condition lbdeploy.ConditionID) (bool, er
 func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdeploy.Condition, cache lbdeploy.ConditionCache, seen conditionSet) (bool, error) {
 	// Special handling for conditions that are identified.
 	if id != "" {
-		// If this condition has already been evaluated, return the cached value.
+		// If this condition has already been evaluated, return the cached
+		// value.
 		if value, computed := cache[id]; computed {
 			return value, nil
 		}
@@ -56,7 +57,8 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 			return false, fmt.Errorf("the \"%s\" condition is recursive and is already being evaluated", id)
 		}
 
-		// Add this condition to evaluation set, then remove it when we're finished.
+		// Add this condition to the evaluation set, then remove it when we're
+		// finished.
 		seen.Add(id)
 		defer seen.Remove(id)
 	}

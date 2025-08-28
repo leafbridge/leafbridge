@@ -42,8 +42,21 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 	// Prepare a version set.
 	status.Versions = make(datatype.VersionSet)
 
-	// If a presence condition has been supplied, use that to determine the
-	// application's installed condition.
+	// If a running condition has been supplied, use that to determine whether
+	// the application is running.
+	if definition.Detection.Running != "" {
+		ce := NewConditionEngine(engine.deployment)
+		running, err := ce.Evaluate(definition.Detection.Running)
+		if err != nil {
+			return status, fmt.Errorf("the status of the \"%s\" app could not be determined: evaluation of the app's running condition failed: %w", app, err)
+		}
+		if running {
+			status.Running = true
+		}
+	}
+
+	// If a presence condition has been supplied, use that to determine
+	// whether the application is installed.
 	if definition.Detection.Present != "" {
 		ce := NewConditionEngine(engine.deployment)
 		installed, err := ce.Evaluate(definition.Detection.Present)
@@ -55,16 +68,17 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 		}
 	}
 
-	// If a registry value that identifies the currently installed version has
-	// been supplied, exmaine it.
+	// If a version variable has been supplied, use that to determine the
+	// installed version of the application.
 	if definition.Detection.Version != "" {
-		version, err := engine.getVersionFromRegistry(definition.Detection.Version)
+		ve := NewVariableEngine(engine.deployment)
+		value, err := ve.Value(definition.Detection.Version)
 		if err != nil {
-			return status, fmt.Errorf("the status of the \"%s\" app could not be determined: retrieval of the app's version value from the registry failed: %w", app, err)
+			return status, fmt.Errorf("the status of the \"%s\" app could not be determined: evaluation of the app's version failed: %w", app, err)
 		}
-		if version != "" {
+		if value.Version() != "" {
 			status.Installed = true // Implied by a detected version.
-			status.Versions.Add(version)
+			status.Versions.Add(value.Version())
 		}
 	}
 

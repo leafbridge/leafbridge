@@ -1,6 +1,7 @@
 package lbdeploy
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/leafbridge/leafbridge/core/idset"
@@ -105,4 +106,26 @@ type KnownFolder struct {
 	// TODO: Create our own representation of a GUID that is suitable for
 	// cross-platform use, then include it here.
 	//guid      *windows.KNOWNFOLDERID
+}
+
+// FileVersionInfoError is returned when file version information cannot be
+// retrieved.
+type FileVersionInfoError struct {
+	ID   FileResourceID
+	Path string
+	Err  error
+}
+
+// Unwrap returns the underlying error for the file version information
+// retrieval.
+func (e FileVersionInfoError) Unwrap() error {
+	return e.Err
+}
+
+// Error returns the error as a string.
+func (e FileVersionInfoError) Error() string {
+	if e.Path == "" {
+		return fmt.Sprintf("failed to read file version information for \"%s\": %s", e.ID, e.Err.Error())
+	}
+	return fmt.Sprintf("failed to read file version information for \"%s\" (%s): %s", e.ID, e.Path, e.Err.Error())
 }

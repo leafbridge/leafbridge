@@ -22,11 +22,12 @@ type Deployment struct {
 	ID         DeploymentID `json:"id,omitempty"`
 	Name       string       `json:"name,omitempty"`
 	Behavior   Behavior     `json:"behavior,omitzero"`
-	Apps       AppMap       `json:"apps,omitzero"`
-	Conditions ConditionMap `json:"conditions,omitzero"`
-	Commands   CommandMap   `json:"commands,omitzero"`
+	Apps       AppMap       `json:"apps,omitempty"`
+	Conditions ConditionMap `json:"conditions,omitempty"`
+	Variables  VariableMap  `json:"variables,omitempty"`
+	Commands   CommandMap   `json:"commands,omitempty"`
 	Resources  Resources    `json:"resources,omitzero"`
-	Flows      FlowMap      `json:"flows,omitzero"`
+	Flows      FlowMap      `json:"flows,omitempty"`
 }
 
 // Validate returns an error if the deployment contains invalid configuration.

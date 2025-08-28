@@ -1,9 +1,10 @@
 module github.com/leafbridge/leafbridge
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/alecthomas/kong v1.12.1
+	github.com/gentlemanautomaton/portableexecutable v0.0.0-20250828093959-90f209bd3cbb
 	github.com/gentlemanautomaton/structformat v0.0.0-20241022070736-a530f00cc986
 	github.com/gentlemanautomaton/volmgmt v0.0.0-20250409182909-ce74450cc0fc
 	github.com/gentlemanautomaton/winapp v0.0.0-20250412002214-a4f7f0c4cb8d
