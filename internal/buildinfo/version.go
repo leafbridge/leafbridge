@@ -40,21 +40,22 @@ func GetVersion(info *debug.BuildInfo) Version {
 }
 
 // VersionForTime creates a version number from the given time. The returned
-// version will be in the format "0.0.YYYYM.MDDQQ", where QQ is the
-// quarter-hour increment within the day. For example, a timestamp for
-// 2025-12-12T23:45:00Z  would return a [Version] of "0.0.20251.21295".
+// version will be in the format "0.0.YYYY.MMDDT", where T is a value between
+// 0 and 9 that increments as time passes through a day.
+//
+// For example, a timestamp for 2025-12-12T23:45:00Z would return a [Version]
+// of "0.0.2025.12129".
 func VersionForTime(t time.Time) Version {
-	s := fmt.Sprintf("%04d%02d%02d%02d",
+	return Version(fmt.Sprintf("0.0.%04d.%02d%02d%d",
 		t.Year(),
 		t.Month(),
 		t.Day(),
-		quarterHour(t),
-	)
-	return Version(fmt.Sprintf("0.0.%s.%s", s[0:5], s[5:]))
+		tenthHour(t),
+	))
 }
 
-func quarterHour(t time.Time) int {
-	return (t.Hour() * 4) + (t.Minute() / 15)
+func tenthHour(t time.Time) int {
+	return ((t.Hour()*60 + t.Minute()) * 10) / 1440
 }
 
 // Major returns the major number from v.
