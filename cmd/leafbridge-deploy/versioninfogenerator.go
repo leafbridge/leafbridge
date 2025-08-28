@@ -59,5 +59,5 @@ func buildVersionInfo() {
 	}
 	vi.Build()
 	vi.Walk()
-	vi.WriteSyso("leafbridge-deploy.syso", runtime.GOARCH)
+	vi.WriteSyso("leafbridge-deploy_windows_amd64.syso", runtime.GOARCH)
 }
