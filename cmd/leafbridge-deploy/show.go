@@ -162,6 +162,9 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				for _, version := range status.Versions.List() {
 					var notes []string
 					if release, found := app.Releases.FindVersion(version); found {
+						if release.Name != "" {
+							notes = append(notes, release.Name)
+						}
 						if release.Date != "" {
 							notes = append(notes, release.Date)
 						}
