@@ -43,6 +43,14 @@ const (
 	CommandModeUpdate = "update"
 )
 
+// CommandFeatures describe optional features for a command.
+type CommandFeatures struct {
+	// UsesWindowsInstaller indicates that a non-MSI command ultimately uses
+	// the Windows Installer framework to perform its actions, and may return
+	// MSI error codes that should be interpreted as such.
+	UsesWindowsInstaller bool `json:"uses-windows-installer,omitzero"`
+}
+
 // CommandMap defines a set of commands that can be issued, mapped by their
 // identifiers.
 type CommandMap map[CommandID]Command
@@ -90,6 +98,9 @@ type Command struct {
 
 	// ExitCodes provide a map of known exit codes for the command.
 	ExitCodes ExitCodeMap `json:"exit-codes,omitzero"`
+
+	// Features describe optional features for a command.
+	Features CommandFeatures `json:"features,omitzero"`
 }
 
 // ExitCodeMap defines a set of expected exit codes.

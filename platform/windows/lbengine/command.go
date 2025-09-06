@@ -470,7 +470,7 @@ func (engine *commandEngine) buildResult(cmdError error) (result lbdeploy.Comman
 		result.ExitCode = 0
 	}
 
-	// Attempt to look up the error code information in the command.
+	// Look up the error code information in the command.
 	if info, found := engine.command.Definition.ExitCodes[result.ExitCode]; found {
 		result.Info = info
 		if info.OK {
@@ -479,9 +479,9 @@ func (engine *commandEngine) buildResult(cmdError error) (result lbdeploy.Comman
 		return
 	}
 
-	// If this is an msiexec command, look for an exit code that is well
-	// known.
-	if engine.command.Definition.Type.IsMSI() {
+	// If this is an msiexec command, or if it uses the Windows Installer
+	// framework to do its work, look for an exit code that is well known.
+	if engine.command.Definition.Type.IsMSI() || engine.command.Definition.Features.UsesWindowsInstaller {
 		code := msiresult.ExitCode(result.ExitCode)
 		if info, found := msiresult.InfoMap[code]; found {
 			result.Info = info
