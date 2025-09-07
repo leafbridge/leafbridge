@@ -12,7 +12,7 @@ require (
 	github.com/gentlemanautomaton/winproc v0.0.0-20250324203923-17a93b0c29c0
 	github.com/josephspurrier/goversioninfo v1.5.0
 	golang.org/x/mod v0.27.0
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.36.0
 	golang.org/x/text v0.28.0
 )
 
