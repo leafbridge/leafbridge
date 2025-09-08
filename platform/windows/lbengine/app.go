@@ -82,7 +82,7 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 		}
 	}
 
-	// If a product code has been provide, retrieve the properties of the app
+	// If a product code has been provided, retrieve the properties of the app
 	// from the registry.
 	if definition.ProductCode != "" {
 		// Use the application registry that matches the application's
@@ -128,11 +128,6 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 
 	// Detect specific releases, if possible.
 	for _, release := range definition.Releases {
-		// Skip releases that don't define a version.
-		if release.Version == "" {
-			continue
-		}
-
 		if release.Detection.Present != "" {
 			ce := NewConditionEngine(engine.deployment)
 			installed, err := ce.Evaluate(release.Detection.Present)
@@ -141,7 +136,9 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 			}
 			if installed {
 				status.Installed = true
-				status.Versions.Add(release.Version)
+				if release.Version != "" {
+					status.Versions.Add(release.Version)
+				}
 			}
 		}
 
@@ -157,7 +154,9 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 			}
 			if installed {
 				status.Installed = true
-				status.Versions.Add(release.Version)
+				if release.Version != "" {
+					status.Versions.Add(release.Version)
+				}
 			}
 		}
 	}
