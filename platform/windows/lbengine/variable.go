@@ -68,6 +68,32 @@ func (engine VariableEngine) evaluate(id lbdeploy.VariableID, variable lbdeploy.
 	// Retrieve or calculate the variable's value.
 	result, err := func() (lbvalue.Value, error) {
 		switch variable.Source {
+		case lbdeploy.VariableSourceRegistryKeyValueNames:
+			if variable.Type.Kind() != lbvalue.KindVersionSet {
+				return lbvalue.Value{}, fmt.Errorf("only variables of type %s are currently supported when the variable source is %s, and the variable type is %s", lbvalue.KindVersionSet, variable.Source, variable.Type.Kind())
+			}
+			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+			ref, err := resolver.ResolveKey(lbdeploy.RegistryKeyResourceID(variable.Subject))
+			if err != nil {
+				return lbvalue.Value{}, err
+			}
+			key, err := localregistry.OpenKey(ref)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return lbvalue.Value{}, nil
+				}
+				return lbvalue.Value{}, err
+			}
+			defer key.Close()
+			names, err := key.ReadValueNames()
+			if err != nil {
+				return lbvalue.Value{}, err
+			}
+			versions := make(datatype.VersionSet, len(names))
+			for _, name := range names {
+				versions.Add(datatype.Version(name))
+			}
+			return lbvalue.VersionSet(versions), nil
 		case lbdeploy.VariableSourceRegistryValue:
 			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
 			ref, err := resolver.ResolveValue(lbdeploy.RegistryValueResourceID(variable.Subject))
@@ -81,6 +107,7 @@ func (engine VariableEngine) evaluate(id lbdeploy.VariableID, variable lbdeploy.
 				}
 				return lbvalue.Value{}, err
 			}
+			defer key.Close()
 			return key.GetValue(ref.Name, ref.Type)
 		case lbdeploy.VariableSourceFileVersion, lbdeploy.VariableSourceProductVersion:
 			// Resolve and open the file.

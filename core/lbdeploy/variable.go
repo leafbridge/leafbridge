@@ -19,11 +19,25 @@ type VariableID string
 // VariableSource identifies the source of a variable.
 type VariableSource string
 
+// VariableType specifies the type of a variable when it is not clear from
+// its source or when its type needs to be coerced.
+type VariableType string
+
+// Kind returns the kind of value indicated by the variable type.
+func (t VariableType) Kind() lbvalue.Kind {
+	var k lbvalue.Kind
+	if err := k.UnmarshalText([]byte(t)); err != nil {
+		return lbvalue.KindUnknown
+	}
+	return k
+}
+
 // Supported variable sources.
 const (
-	VariableSourceRegistryValue  VariableSource = "resource.registry.value"
-	VariableSourceFileVersion    VariableSource = "resource.file-system.file:file-version"
-	VariableSourceProductVersion VariableSource = "resource.file-system.file:product-version"
+	VariableSourceRegistryKeyValueNames VariableSource = "resource.registry.key:value-names"
+	VariableSourceRegistryValue         VariableSource = "resource.registry.value"
+	VariableSourceFileVersion           VariableSource = "resource.file-system.file:file-version"
+	VariableSourceProductVersion        VariableSource = "resource.file-system.file:product-version"
 )
 
 // Variable describes a variable that can be evaluated.
@@ -31,6 +45,7 @@ type Variable struct {
 	Label   string         `json:"label,omitempty"`
 	Source  VariableSource `json:"source,omitempty"`
 	Subject string         `json:"subject,omitempty"`
+	Type    VariableType   `json:"type,omitempty"`
 }
 
 // VariableError is returned when a variable cannot be calculated due to an

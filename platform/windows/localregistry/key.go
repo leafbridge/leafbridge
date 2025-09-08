@@ -165,3 +165,8 @@ func (key Key) GetValue(name string, kind lbvalue.Kind) (lbvalue.Value, error) {
 		return lbvalue.Value{}, fmt.Errorf("unable to retrieve \"%s\" registry value: \"%s\" is not a regognized variable type", name, kind)
 	}
 }
+
+// ReadValueNames retrieves the list of value names for the registry key.
+func (key Key) ReadValueNames() ([]string, error) {
+	return key.key.ReadValueNames(0)
+}
