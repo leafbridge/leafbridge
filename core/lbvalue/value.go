@@ -16,6 +16,24 @@ type Value struct {
 	data any
 }
 
+// Zero returns the zero value for the given kind.
+func Zero(kind Kind) Value {
+	switch kind {
+	case KindBool:
+		return Bool(false)
+	case KindInt64:
+		return Int64(0)
+	case KindString:
+		return String("")
+	case KindVersion:
+		return Version("")
+	case KindVersionSet:
+		return VersionSet(nil)
+	default:
+		return Value{}
+	}
+}
+
 // Bool returns a [Value] representing the boolean v.
 func Bool(v bool) Value {
 	var num uint64
