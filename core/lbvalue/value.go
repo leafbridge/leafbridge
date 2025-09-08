@@ -16,6 +16,9 @@ type Value struct {
 	data any
 }
 
+// Unknown is an unknown value.
+var Unknown = Value{}
+
 // Zero returns the zero value for the given kind.
 func Zero(kind Kind) Value {
 	switch kind {
@@ -176,6 +179,10 @@ func (v *Value) UnmarshalJSON(b []byte) error {
 		default:
 			return errors.New("the value type could not be determined")
 		}
+	case string(b) == "true":
+		*v = Bool(true)
+	case string(b) == "false":
+		*v = Bool(false)
 	default:
 		return errors.New("the value type could not be determined")
 	}
