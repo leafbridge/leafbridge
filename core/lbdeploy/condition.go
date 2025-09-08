@@ -54,7 +54,7 @@ type Condition struct {
 	Subject    string             `json:"subject,omitempty"`
 	Comparison lbvalue.Comparison `json:"comparison,omitzero"`
 	Value      lbvalue.Value      `json:"value,omitzero"`
-	Negated    bool               `json:"negated,omitempty"`
+	Negated    bool               `json:"negated,omitzero"`
 	Any        []Condition        `json:"any,omitzero"`
 	All        []Condition        `json:"all,omitzero"`
 	Violation  string             `json:"violation,omitempty"`

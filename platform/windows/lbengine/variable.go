@@ -204,6 +204,12 @@ func (engine VariableEngine) evaluate(id lbdeploy.VariableID, variable lbdeploy.
 		}
 	}()
 
+	// If criteria have been supplied for the variable, use them to filter
+	// its value.
+	if err == nil && !variable.Criteria.IsZero() {
+		result, err = variable.Criteria.Filter(result)
+	}
+
 	// If we encountered an error, wrap it with information about the
 	// variable.
 	if err != nil {
