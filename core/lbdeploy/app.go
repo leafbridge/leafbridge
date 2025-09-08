@@ -296,7 +296,14 @@ func (m AppStatusMap) EvaluateAppRemoval(list AppCriteriaList) (evaluation AppRe
 				continue
 			}
 			if len(status.Versions) > 0 {
-				for _, version := range status.Versions.List() {
+				// If there is more than one version present, start with the
+				// the highest version number and work backward. This can be
+				// important for applications that use cumulative updates and
+				// need to have the patches removed before the base
+				// application.
+				versions := status.Versions.List()
+				slices.Reverse(versions)
+				for _, version := range versions {
 					if criteria.Matches(AppVersion{App: criteria.App, Version: version}) {
 						evaluation.ToUninstall = append(evaluation.ToUninstall, AppVersion{App: criteria.App, Version: version})
 					}
