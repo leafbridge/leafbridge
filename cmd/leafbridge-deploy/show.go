@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gentlemanautomaton/winobj/winmutex"
+	"github.com/leafbridge/leafbridge/core/datatype"
 	"github.com/leafbridge/leafbridge/core/lbdeployevent"
 	"github.com/leafbridge/leafbridge/core/lbevent"
 	"github.com/leafbridge/leafbridge/platform/windows/lbengine"
@@ -157,6 +158,10 @@ func (cmd ShowAppsCmd) Run(ctx context.Context) error {
 				info = append(info, "Installed")
 				if status.Running {
 					info = append(info, "Running")
+				}
+
+				if app.Features.CumulativeReleases && len(status.Versions) > 1 {
+					status.Versions = datatype.NewVersionSet(status.Versions.Max())
 				}
 
 				for _, version := range status.Versions.List() {

@@ -43,6 +43,7 @@ type Application struct {
 	Detection    AppDetection    `json:"detection,omitzero"`
 	Tags         AppReleaseTags  `json:"tags,omitempty"`
 	Releases     AppReleaseList  `json:"releases,omitempty"`
+	Features     AppFeatures     `json:"features,omitzero"`
 }
 
 // FindProductCode returns the product code for the given application version.
@@ -61,6 +62,16 @@ func (app Application) FindProductCode(subject AppVersion) ProductCode {
 	}
 
 	return app.ProductCode
+}
+
+// AppFeatures describe optional features for an application.
+type AppFeatures struct {
+	// CumulativeReleases indicates that an application does not support
+	// side-by-side installations, and that detection of multiple releases
+	// indicates that multiple updates have been applied to the same
+	// installation. In this case the highest version number should be
+	// considered authoritative.
+	CumulativeReleases bool `json:"cumulative-releases,omitzero"`
 }
 
 // AppDetection describes how to detect the presence of an installed
