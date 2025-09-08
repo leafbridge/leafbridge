@@ -1,15 +1,13 @@
 package datatype_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/leafbridge/leafbridge/core/datatype"
 )
 
 func TestVersionSet(t *testing.T) {
-	set := make(datatype.VersionSet)
-	set.Add("1")
+	set := datatype.NewVersionSet("1")
 	set.Add("1")
 	set.Add("1.0")
 	set.Add("1.0.0")
@@ -39,12 +37,8 @@ func TestVersionSet(t *testing.T) {
 	if set.Max() != "27.2" {
 		t.Fatalf("the set's maximum value should be \"27.2\"")
 	}
-	var values []string
-	for _, version := range set.List() {
-		values = append(values, string(version))
-	}
-	result := strings.Join(values, ", ")
-	const expected = "1, 2, 2.2.1.5, 5.2.1, 27.2"
+	result := set.String()
+	const expected = "[1, 2, 2.2.1.5, 5.2.1, 27.2]"
 	if result != expected {
 		t.Fatalf("the resulting set did not contain the expected values: got \"%s\" (wanted \"%s\")", result, expected)
 	}

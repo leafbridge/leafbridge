@@ -76,9 +76,16 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 		if err != nil {
 			return status, fmt.Errorf("the status of the \"%s\" app could not be determined: evaluation of the app's version failed: %w", app, err)
 		}
-		if value.Version() != "" {
+		switch value.Kind() {
+		case lbvalue.KindVersion, lbvalue.KindVersionSet:
+		default:
+			return status, fmt.Errorf("the status of the \"%s\" app could not be determined: evaluation of the app's version failed: the variable \"%s\" holds a %s instead of a %s or %s", app, definition.Detection.Version, value.Kind(), lbvalue.KindVersion, lbvalue.KindVersionSet)
+		}
+		if set := value.VersionSet(); len(set) > 0 {
 			status.Installed = true // Implied by a detected version.
-			status.Versions.Add(value.Version())
+			for version := range set {
+				status.Versions.Add(version)
+			}
 		}
 	}
 

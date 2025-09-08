@@ -14,26 +14,37 @@ const (
 	KindInt64
 	KindString
 	KindVersion
+	KindVersionSet
 
 	// TODO: Add types from the netip package to be used in network detection.
 	//KindNetAddr
 	//KindNetPrefix
 )
 
-var kindStrings = []string{
+var kindNames = []string{
 	"Unknown",
 	"Bool",
 	"Int64",
 	"String",
 	"Version",
+	"VersionSet",
 }
 
-var kindStringsLower = []string{
+var kindStrings = []string{
 	"unknown",
 	"bool",
 	"int64",
 	"string",
 	"version",
+	"version-set",
+}
+
+// Name returns a human-friendly string representation of k.
+func (k Kind) Name() string {
+	if k := int(k); k >= 0 && k < len(kindNames) {
+		return kindNames[k]
+	}
+	return fmt.Sprintf("<unknown kind \"%d\">", k)
 }
 
 // String returns a string representation of k.
@@ -57,6 +68,8 @@ func (k *Kind) UnmarshalText(b []byte) error {
 		*k = KindString
 	case "version":
 		*k = KindVersion
+	case "version-set":
+		*k = KindVersionSet
 	default:
 		return fmt.Errorf("unrecognized kind: %s", b)
 	}
@@ -65,8 +78,8 @@ func (k *Kind) UnmarshalText(b []byte) error {
 
 // MarshalText marshals the kind as text.
 func (k Kind) MarshalText() ([]byte, error) {
-	if k := int(k); k >= 0 && k < len(kindStringsLower) {
-		return []byte(kindStringsLower[k]), nil
+	if k := int(k); k >= 0 && k < len(kindStrings) {
+		return []byte(kindStrings[k]), nil
 	}
 	return nil, fmt.Errorf("unrecognized kind: %d", k)
 }

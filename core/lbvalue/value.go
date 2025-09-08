@@ -40,6 +40,11 @@ func Version(v datatype.Version) Value {
 	return Value{data: v}
 }
 
+// VersionSet returns a [Value] representing the version set v.
+func VersionSet(v datatype.VersionSet) Value {
+	return Value{data: v}
+}
+
 // Kind returns the kind of the value.
 func (v Value) Kind() Kind {
 	switch data := v.data.(type) {
@@ -49,6 +54,8 @@ func (v Value) Kind() Kind {
 		return KindString
 	case datatype.Version:
 		return KindVersion
+	case datatype.VersionSet:
+		return KindVersionSet
 	default:
 		return KindUnknown
 	}
@@ -87,6 +94,8 @@ func (v Value) String() string {
 		return data
 	case datatype.Version:
 		return string(data)
+	case datatype.VersionSet:
+		return data.String()
 	}
 	return ""
 }
@@ -97,6 +106,16 @@ func (v Value) Version() datatype.Version {
 		return value
 	}
 	return ""
+}
+
+// VersionSet returns the value as a [datatype.VersionSet].
+func (v Value) VersionSet() datatype.VersionSet {
+	if value, ok := v.data.(datatype.VersionSet); ok {
+		return value
+	} else if value, ok := v.data.(datatype.Version); ok {
+		return datatype.NewVersionSet(value)
+	}
+	return nil
 }
 
 // UnmarshalJSON attempts to unmarshal the given JSON data into v.
@@ -130,6 +149,12 @@ func (v *Value) UnmarshalJSON(b []byte) error {
 				return err
 			}
 			*v = Version(aux.Version)
+		case keys.Contains("version-set"):
+			var aux versionSetJSON
+			if err := json.Unmarshal(b, &aux); err != nil {
+				return err
+			}
+			*v = VersionSet(datatype.NewVersionSet(aux.Versions...))
 		default:
 			return errors.New("the value type could not be determined")
 		}
@@ -156,6 +181,8 @@ func (v Value) MarshalJSON() ([]byte, error) {
 		return json.Marshal(data)
 	case datatype.Version:
 		return json.Marshal(versionJSON{Version: data})
+	case datatype.VersionSet:
+		return json.Marshal(versionSetJSON{Versions: data.List()})
 	default:
 		return nil, errors.New("cannot marshal value of unknown kind")
 	}
@@ -170,4 +197,8 @@ func (set keySet) Contains(key string) bool {
 
 type versionJSON struct {
 	Version datatype.Version `json:"version"`
+}
+
+type versionSetJSON struct {
+	Versions []datatype.Version `json:"version-set"`
 }
