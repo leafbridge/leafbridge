@@ -1,6 +1,7 @@
 package lbdeployevent
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -36,9 +37,7 @@ func (e DeploymentStarted) Message() string {
 	var builder structformat.Builder
 
 	builder.WritePrimary(string(e.Deployment.ID))
-	builder.WriteStandard("Starting.")
-
-	builder.WriteNote(string(e.Invocation.ID))
+	builder.WriteStandard(fmt.Sprintf("Starting invocation \"%s\".", e.Invocation.ID))
 
 	return builder.String()
 }
@@ -85,9 +84,7 @@ func (e DeploymentStopped) Message() string {
 	var builder structformat.Builder
 
 	builder.WritePrimary(string(e.Deployment))
-	builder.WriteStandard("Stopped.")
-
-	builder.WriteNote(string(e.Invocation))
+	builder.WriteStandard(fmt.Sprintf("Stopped invocation \"%s\".", e.Invocation))
 	builder.WriteNote(e.Duration().Round(time.Millisecond * 10).String())
 
 	return builder.String()
