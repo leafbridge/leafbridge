@@ -17,6 +17,7 @@ import (
 // extractionEngine manages the extraction of files and directories from
 // archives.
 type extractionEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -57,6 +58,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 
 	// Record the start of the extraction.
 	engine.events.Record(lbdeployevent.ExtractionStarted{
+		Invocation:      engine.invocation.ID,
 		Deployment:      engine.deployment.ID,
 		Flow:            engine.flow.ID,
 		ActionIndex:     engine.action.Index,
@@ -128,6 +130,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 
 			// Record the extraction of the file.
 			engine.events.Record(lbdeployevent.FileExtraction{
+				Invocation: engine.invocation.ID,
 				Deployment: engine.deployment.ID,
 				Flow:       engine.flow.ID,
 				Action:     engine.action.Definition.Type,
@@ -153,6 +156,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 
 	// Record the end of the extraction.
 	engine.events.Record(lbdeployevent.ExtractionStopped{
+		Invocation:       engine.invocation.ID,
 		Deployment:       engine.deployment.ID,
 		Flow:             engine.flow.ID,
 		ActionIndex:      engine.action.Index,

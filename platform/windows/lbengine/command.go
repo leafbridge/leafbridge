@@ -31,6 +31,7 @@ type commandData struct {
 
 // commandEngine manages invocation of a command.
 type commandEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -271,6 +272,7 @@ func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvalua
 
 	// Record the start of the command.
 	engine.events.Record(lbdeployevent.CommandStarted{
+		Invocation:           engine.invocation.ID,
 		Deployment:           engine.deployment.ID,
 		Flow:                 engine.flow.ID,
 		ActionIndex:          engine.action.Index,
@@ -338,6 +340,7 @@ func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvalua
 
 	// Record the end of the command.
 	engine.events.Record(lbdeployevent.CommandStopped{
+		Invocation:           engine.invocation.ID,
 		Deployment:           engine.deployment.ID,
 		Flow:                 engine.flow.ID,
 		ActionIndex:          engine.action.Index,

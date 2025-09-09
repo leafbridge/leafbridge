@@ -8,6 +8,8 @@ import "github.com/leafbridge/leafbridge/core/lbevent"
 // The registrations can be provided to an [lbevent.Registry] to facilitate
 // unmarshaling and event ID assignments.
 var Registrations = []lbevent.Registration{
+	{Type: DeploymentStartedType, Unmarshaler: lbevent.UnmarshalRecord[DeploymentStarted]},
+	{Type: DeploymentStoppedType, Unmarshaler: lbevent.UnmarshalRecord[DeploymentStopped]},
 	{Type: FlowStartedType, Unmarshaler: lbevent.UnmarshalRecord[FlowStarted]},
 	{Type: FlowStoppedType, Unmarshaler: lbevent.UnmarshalRecord[FlowStopped]},
 	{Type: FlowConditionType, Unmarshaler: lbevent.UnmarshalRecord[FlowCondition]},

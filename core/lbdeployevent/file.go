@@ -23,6 +23,7 @@ const (
 // FileExtraction is an event that occurs when an archived file has been
 // extracted.
 type FileExtraction struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 	Action     lbdeploy.ActionType
@@ -66,6 +67,7 @@ func (e FileExtraction) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FileExtraction) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.String("action", string(e.Action)),
@@ -94,6 +96,7 @@ func (e FileExtraction) BitrateInMbps() string {
 // FileVerification is an event that records the result of verifying
 // a downloaded file.
 type FileVerification struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -156,6 +159,7 @@ func (e FileVerification) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FileVerification) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -173,6 +177,7 @@ func (e FileVerification) Attrs() []slog.Attr {
 
 // FileCopy is an event that occurs when a file is copied.
 type FileCopy struct {
+	Invocation         lbdeploy.InvocationID
 	Deployment         lbdeploy.DeploymentID
 	Flow               lbdeploy.FlowID
 	ActionIndex        int
@@ -244,6 +249,7 @@ func (e FileCopy) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FileCopy) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -271,6 +277,7 @@ func (e FileCopy) BitrateInMbps() string {
 
 // FileDelete is an event that occurs when a file is deleted.
 type FileDelete struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -335,6 +342,7 @@ func (e FileDelete) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FileDelete) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),

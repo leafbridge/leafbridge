@@ -19,6 +19,7 @@ type flowData struct {
 
 // flowEngine manages execution of a flow within a deployment.
 type flowEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	events     lbevent.Recorder
@@ -36,6 +37,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 	if engine.state.activeFlows.Contains(engine.flow.ID) {
 		// Record the failure to start the flow.
 		engine.events.Record(lbdeployevent.FlowAlreadyRunning{
+			Invocation: engine.invocation.ID,
 			Deployment: engine.deployment.ID,
 			Flow:       engine.flow.ID,
 		})
@@ -54,6 +56,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 			if err != nil {
 				// Record the evaluation failure.
 				engine.events.Record(lbdeployevent.FlowCondition{
+					Invocation: engine.invocation.ID,
 					Deployment: engine.deployment.ID,
 					Flow:       engine.flow.ID,
 					Use:        lbdeploy.ConditionUseConstraint,
@@ -71,6 +74,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 		// Record the results of the evaluation.
 		engine.events.Record(lbdeployevent.FlowCondition{
+			Invocation: engine.invocation.ID,
 			Deployment: engine.deployment.ID,
 			Flow:       engine.flow.ID,
 			Use:        lbdeploy.ConditionUseConstraint,
@@ -96,6 +100,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 			if err != nil {
 				// Record the evaluation failure.
 				engine.events.Record(lbdeployevent.FlowCondition{
+					Invocation: engine.invocation.ID,
 					Deployment: engine.deployment.ID,
 					Flow:       engine.flow.ID,
 					Use:        lbdeploy.ConditionUsePrecondition,
@@ -113,6 +118,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 		// Record the results of the evaluation.
 		engine.events.Record(lbdeployevent.FlowCondition{
+			Invocation: engine.invocation.ID,
 			Deployment: engine.deployment.ID,
 			Flow:       engine.flow.ID,
 			Use:        lbdeploy.ConditionUsePrecondition,
@@ -155,6 +161,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 			// Record the lock acquisition failure.
 			engine.events.Record(lbdeployevent.FlowLockNotAcquired{
+				Invocation: engine.invocation.ID,
 				Deployment: engine.deployment.ID,
 				Flow:       engine.flow.ID,
 				Lock:       lockID,
@@ -177,6 +184,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 	// Record the start of the flow.
 	engine.events.Record(lbdeployevent.FlowStarted{
+		Invocation: engine.invocation.ID,
 		Deployment: engine.deployment.ID,
 		Flow:       engine.flow.ID,
 	})
@@ -199,6 +207,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 			// Create an action engine.
 			ae := actionEngine{
+				invocation: engine.invocation,
 				deployment: engine.deployment,
 				flow:       engine.flow,
 				action: actionData{
@@ -234,6 +243,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 	// Record the end of the flow.
 	engine.events.Record(lbdeployevent.FlowStopped{
+		Invocation: engine.invocation.ID,
 		Deployment: engine.deployment.ID,
 		Flow:       engine.flow.ID,
 		Stats:      stats,

@@ -22,6 +22,7 @@ const (
 
 // CommandSkipped is an event that occurs when a command is skipped.
 type CommandSkipped struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -90,6 +91,7 @@ func (e CommandSkipped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e CommandSkipped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -110,6 +112,7 @@ func (e CommandSkipped) Attrs() []slog.Attr {
 
 // CommandStarted is an event that occurs when a command has started.
 type CommandStarted struct {
+	Invocation           lbdeploy.InvocationID
 	Deployment           lbdeploy.DeploymentID
 	Flow                 lbdeploy.FlowID
 	ActionIndex          int
@@ -178,6 +181,7 @@ func (e CommandStarted) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e CommandStarted) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -201,6 +205,7 @@ func (e CommandStarted) Attrs() []slog.Attr {
 
 // CommandStopped is an event that occurs when a command has stopped.
 type CommandStopped struct {
+	Invocation           lbdeploy.InvocationID
 	Deployment           lbdeploy.DeploymentID
 	Flow                 lbdeploy.FlowID
 	ActionIndex          int
@@ -295,6 +300,7 @@ func (e CommandStopped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e CommandStopped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),

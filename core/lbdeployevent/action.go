@@ -19,6 +19,7 @@ const (
 
 // ActionStarted is an event that occurs when a deployment action has started.
 type ActionStarted struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -58,6 +59,7 @@ func (e ActionStarted) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e ActionStarted) Attrs() []slog.Attr {
 	return []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -66,6 +68,7 @@ func (e ActionStarted) Attrs() []slog.Attr {
 
 // ActionStopped is an event that occurs when a deployment action has stopped.
 type ActionStopped struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -119,6 +122,7 @@ func (e ActionStopped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e ActionStopped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),

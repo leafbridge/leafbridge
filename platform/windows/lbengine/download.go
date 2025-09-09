@@ -16,6 +16,7 @@ import (
 
 // downloadEngine manages the download and verification of files.
 type downloadEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -55,6 +56,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 	if existingFileAttributes := verifier.State(); existingFileAttributes.Size >= pkg.Definition.Attributes.Size {
 		// Record the file verification result.
 		engine.events.Record(lbdeployevent.FileVerification{
+			Invocation:  engine.invocation.ID,
 			Deployment:  engine.deployment.ID,
 			Flow:        engine.flow.ID,
 			ActionIndex: engine.action.Index,
@@ -118,6 +120,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 
 		// Record the file verification result.
 		engine.events.Record(lbdeployevent.FileVerification{
+			Invocation:  engine.invocation.ID,
 			Deployment:  engine.deployment.ID,
 			Flow:        engine.flow.ID,
 			ActionIndex: engine.action.Index,
@@ -196,6 +199,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 
 	// Record the start of the download.
 	engine.events.Record(lbdeployevent.DownloadStarted{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
@@ -240,6 +244,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 
 	// Record the end of the download.
 	engine.events.Record(lbdeployevent.DownloadStopped{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
@@ -260,6 +265,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 func (engine *downloadEngine) resetFileDownload(source lbdeploy.PackageSource, file stagingfs.PackageFile, verifier *FileVerifier, reason lbdeployevent.DownloadResetReason) error {
 	// Record the reset of the download.
 	engine.events.Record(lbdeployevent.DownloadReset{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,

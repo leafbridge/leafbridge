@@ -18,6 +18,7 @@ type actionData struct {
 
 // actionEngine manages execution of an action within a flow.
 type actionEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -29,6 +30,7 @@ type actionEngine struct {
 func (engine *actionEngine) Invoke(ctx context.Context) error {
 	// Record the start of the action.
 	engine.events.Record(lbdeployevent.ActionStarted{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
@@ -72,6 +74,7 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 
 	// Record the end of the action.
 	engine.events.Record(lbdeployevent.ActionStopped{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
@@ -96,6 +99,7 @@ func (engine *actionEngine) startFlow(ctx context.Context) error {
 
 	// Prepare the flow engine.
 	fe := flowEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow: flowData{
 			ID:         flow,
@@ -121,6 +125,7 @@ func (engine *actionEngine) preparePackage(ctx context.Context) error {
 
 	// Prepare a package engine.
 	pe := packageEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -149,6 +154,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 
 		// Prepare a package engine.
 		pe := packageEngine{
+			invocation: engine.invocation,
 			deployment: engine.deployment,
 			flow:       engine.flow,
 			action:     engine.action,
@@ -192,6 +198,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 			if (!engine.force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
+					Invocation:  engine.invocation.ID,
 					Deployment:  engine.deployment.ID,
 					Flow:        engine.flow.ID,
 					ActionIndex: engine.action.Index,
@@ -208,6 +215,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 
 	// Prepare a command engine.
 	ce := commandEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -232,6 +240,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 func (engine *actionEngine) copyFile(ctx context.Context) error {
 	// Prepare a file engine.
 	fe := fileEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -247,6 +256,7 @@ func (engine *actionEngine) copyFile(ctx context.Context) error {
 func (engine *actionEngine) deleteFile(ctx context.Context) error {
 	// Prepare a file engine.
 	fe := fileEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,

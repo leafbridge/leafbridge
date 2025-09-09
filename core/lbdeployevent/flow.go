@@ -12,7 +12,7 @@ import (
 
 // TODO: Add some sort of random UUID for the deployment instance?
 
-// Deployment file event types.
+// Deployment flow event types.
 const (
 	FlowStartedType         = lbevent.Type("deployment.flow:started")
 	FlowStoppedType         = lbevent.Type("deployment.flow:stopped")
@@ -23,6 +23,7 @@ const (
 
 // FlowStarted is an event that occurs when a deployment flow has started.
 type FlowStarted struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 }
@@ -58,6 +59,7 @@ func (e FlowStarted) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FlowStarted) Attrs() []slog.Attr {
 	return []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 	}
@@ -65,6 +67,7 @@ func (e FlowStarted) Attrs() []slog.Attr {
 
 // FlowStopped is an event that occurs when a deployment flow has stopped.
 type FlowStopped struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 	Stats      lbdeploy.FlowStats
@@ -130,6 +133,7 @@ func (e FlowStopped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FlowStopped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Time("started", e.Started),
@@ -150,6 +154,7 @@ func (e FlowStopped) Duration() time.Duration {
 // FlowCondition is an event that occurs when a deployment flow evalutes
 // its preconditions.
 type FlowCondition struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 	Use        lbdeploy.ConditionUse
@@ -201,6 +206,7 @@ func (e FlowCondition) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FlowCondition) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.String("use", string(e.Use)),
@@ -215,6 +221,7 @@ func (e FlowCondition) Attrs() []slog.Attr {
 // FlowLockNotAcquired is an event that occurs when a deployment flow cannot
 // be started because one of its locks could not be acquired.
 type FlowLockNotAcquired struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 	Lock       lbdeploy.LockID
@@ -256,6 +263,7 @@ func (e FlowLockNotAcquired) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FlowLockNotAcquired) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 	}
@@ -272,6 +280,7 @@ func (e FlowLockNotAcquired) Attrs() []slog.Attr {
 // be started because the flow is already running. This might indicate a cycle
 // in the flow logic.
 type FlowAlreadyRunning struct {
+	Invocation lbdeploy.InvocationID
 	Deployment lbdeploy.DeploymentID
 	Flow       lbdeploy.FlowID
 }
@@ -307,6 +316,7 @@ func (e FlowAlreadyRunning) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e FlowAlreadyRunning) Attrs() []slog.Attr {
 	return []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 	}

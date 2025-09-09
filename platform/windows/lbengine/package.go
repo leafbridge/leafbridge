@@ -19,6 +19,7 @@ type packageData struct {
 
 // packageEngine manages package-related actions.
 type packageEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -39,6 +40,7 @@ func (engine *packageEngine) PreparePackage(ctx context.Context) error {
 
 	// Prepare a download engine.
 	de := downloadEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -81,6 +83,7 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 			if (!engine.force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
+					Invocation:  engine.invocation.ID,
 					Deployment:  engine.deployment.ID,
 					Flow:        engine.flow.ID,
 					ActionIndex: engine.action.Index,
@@ -137,6 +140,7 @@ func (engine *packageEngine) invokePackageCommand(ctx context.Context, command c
 
 			// Prepare a download engine.
 			de := downloadEngine{
+				invocation: engine.invocation,
 				deployment: engine.deployment,
 				flow:       engine.flow,
 				action:     engine.action,
@@ -176,6 +180,7 @@ func (engine *packageEngine) invokePackageCommand(ctx context.Context, command c
 
 	// Prepare a command engine.
 	ce := commandEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -208,6 +213,7 @@ func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command c
 
 		// Prepare a download engine.
 		de := downloadEngine{
+			invocation: engine.invocation,
 			deployment: engine.deployment,
 			flow:       engine.flow,
 			action:     engine.action,
@@ -238,6 +244,7 @@ func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command c
 
 		// Prepare an extraction engine.
 		ee := extractionEngine{
+			invocation: engine.invocation,
 			deployment: engine.deployment,
 			flow:       engine.flow,
 			action:     engine.action,
@@ -261,6 +268,7 @@ func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command c
 
 	// Prepare a command engine.
 	ce := commandEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,
@@ -280,6 +288,7 @@ func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command c
 func (engine *packageEngine) invokeAppCommand(ctx context.Context, command commandData, apps lbdeploy.AppEvaluation) error {
 	// Prepare a command engine.
 	ce := commandEngine{
+		invocation: engine.invocation,
 		deployment: engine.deployment,
 		flow:       engine.flow,
 		action:     engine.action,

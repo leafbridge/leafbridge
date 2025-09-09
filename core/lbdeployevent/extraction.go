@@ -53,6 +53,7 @@ func (stats ExtractionStats) String() string {
 // ExtractionStarted is an event that occurs when archive extraction has
 // started.
 type ExtractionStarted struct {
+	Invocation      lbdeploy.InvocationID
 	Deployment      lbdeploy.DeploymentID
 	Flow            lbdeploy.FlowID
 	ActionIndex     int
@@ -95,6 +96,7 @@ func (e ExtractionStarted) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e ExtractionStarted) Attrs() []slog.Attr {
 	return []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -106,6 +108,7 @@ func (e ExtractionStarted) Attrs() []slog.Attr {
 // ExtractionStopped is an event that occurs when archive extraction has
 // stopped.
 type ExtractionStopped struct {
+	Invocation       lbdeploy.InvocationID
 	Deployment       lbdeploy.DeploymentID
 	Flow             lbdeploy.FlowID
 	ActionIndex      int
@@ -165,6 +168,7 @@ func (e ExtractionStopped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e ExtractionStopped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),

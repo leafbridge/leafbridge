@@ -18,6 +18,7 @@ import (
 
 // fileEngine handles file system operations within a deployment.
 type fileEngine struct {
+	invocation lbdeploy.Invocation
 	deployment lbdeploy.Deployment
 	flow       flowData
 	action     actionData
@@ -137,6 +138,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 
 	// Record the file copy.
 	engine.events.Record(lbdeployevent.FileCopy{
+		Invocation:         engine.invocation.ID,
 		Deployment:         engine.deployment.ID,
 		Flow:               engine.flow.ID,
 		ActionIndex:        engine.action.Index,
@@ -223,6 +225,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 
 	// Record the file deletion.
 	engine.events.Record(lbdeployevent.FileDelete{
+		Invocation:  engine.invocation.ID,
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,

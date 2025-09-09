@@ -20,6 +20,7 @@ const (
 
 // DownloadStarted is an event that occurs when a file download has started.
 type DownloadStarted struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -67,6 +68,7 @@ func (e DownloadStarted) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e DownloadStarted) Attrs() []slog.Attr {
 	return []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -78,6 +80,7 @@ func (e DownloadStarted) Attrs() []slog.Attr {
 
 // DownloadStopped is an event that occurs when a file download has stopped.
 type DownloadStopped struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -145,6 +148,7 @@ func (e DownloadStopped) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e DownloadStopped) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
@@ -204,6 +208,7 @@ func (reason DownloadResetReason) Description() string {
 // content is discarded, forcing the download to start from the beginning
 // again.
 type DownloadReset struct {
+	Invocation  lbdeploy.InvocationID
 	Deployment  lbdeploy.DeploymentID
 	Flow        lbdeploy.FlowID
 	ActionIndex int
@@ -259,6 +264,7 @@ func (e DownloadReset) Details() string {
 // Attrs returns a set of structured log attributes for the event.
 func (e DownloadReset) Attrs() []slog.Attr {
 	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
 		slog.String("deployment", string(e.Deployment)),
 		slog.String("flow", string(e.Flow)),
 		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),

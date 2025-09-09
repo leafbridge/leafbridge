@@ -3,9 +3,13 @@ package lbengine
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
+	"github.com/leafbridge/leafbridge/core/lbdeployevent"
 	"github.com/leafbridge/leafbridge/core/lbevent"
+	"github.com/leafbridge/leafbridge/core/lbrand"
 )
 
 // DeploymentEngine is a LeafBridge engine that is responsible for invocation
@@ -30,12 +34,26 @@ func NewDeploymentEngine(deployment lbdeploy.Deployment, opts Options) Deploymen
 
 // Invoke executes a flow within a LeafBridge deployment.
 func (engine DeploymentEngine) Invoke(ctx context.Context, flow lbdeploy.FlowID) error {
-	// TODO: Generate some sort of random UUID for the deployment invocation
-	// that can be used for log analysis?
+	// Check for context cancellation.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Record the time that the deployment started.
+	started := time.Now()
 
 	// Ensure that the deployment is valid.
 	if err := engine.deployment.Validate(); err != nil {
 		return err
+	}
+
+	// Prepare an invocation.
+	host, _ := os.Hostname()
+	invocation := lbdeploy.Invocation{
+		ID:          lbrand.NewID[lbdeploy.InvocationID](),
+		Host:        host,
+		InitialFlow: flow,
+		Started:     started,
 	}
 
 	// Find the requested flow within the deployment.
@@ -62,8 +80,15 @@ func (engine DeploymentEngine) Invoke(ctx context.Context, flow lbdeploy.FlowID)
 		engine.state.locks.CloseAll()
 	}()
 
+	// Record the start of the deployment.
+	engine.events.Record(lbdeployevent.DeploymentStarted{
+		Invocation: invocation,
+		Deployment: engine.deployment,
+	})
+
 	// Invoke the requested flow.
 	fe := flowEngine{
+		invocation: invocation,
 		deployment: engine.deployment,
 		flow: flowData{
 			ID:         flow,
@@ -74,5 +99,19 @@ func (engine DeploymentEngine) Invoke(ctx context.Context, flow lbdeploy.FlowID)
 		state:  engine.state,
 	}
 
-	return fe.Invoke(ctx)
+	err := fe.Invoke(ctx)
+
+	// Record the time that the flow stopped.
+	stopped := time.Now()
+
+	// Record the end of the deployment.
+	engine.events.Record(lbdeployevent.DeploymentStopped{
+		Invocation: invocation.ID,
+		Deployment: engine.deployment.ID,
+		Started:    started,
+		Stopped:    stopped,
+		Err:        err,
+	})
+
+	return err
 }
