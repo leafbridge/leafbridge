@@ -15,10 +15,11 @@ import (
 // DeployCmd deploys software according to a LeafBridge deployment
 // configuration.
 type DeployCmd struct {
-	ConfigFile string          `kong:"required,name='config-file',help='Path to a deployment file describing the deployment.'"`
-	Flow       lbdeploy.FlowID `kong:"required,name='flow',help='The flow to invoke within the deployment.'"`
-	Force      bool            `kong:"optional,name='force',help='Force processing of the commands that would normally be skipped.'"`
-	Verbose    bool            `kong:"optional,name='verbose',short='v',help='Show debug messages on the command line.'"`
+	ConfigFile    string          `kong:"required,name='config-file',help='Path to a deployment file describing the deployment.'"`
+	Flow          lbdeploy.FlowID `kong:"required,name='flow',help='The flow to invoke within the deployment.'"`
+	Force         bool            `kong:"optional,name='force',help='Force processing of the commands that would normally be skipped.'"`
+	CommandOutput string          `kong:"optional,name='command-output',enum='console,ignore',default='console',help='Indicates where to send the output of commands (console, ignore).'"`
+	Verbose       bool            `kong:"optional,name='verbose',short='v',help='Show debug messages on the command line.'"`
 }
 
 // Run executes the LeafBridge deploy command.
@@ -61,10 +62,15 @@ func (cmd DeployCmd) Run(ctx context.Context) error {
 	recorder := lbevent.Recorder{Handler: handler}
 
 	// Prepare a new deployment engine for the deployment.
-	engine := lbengine.NewDeploymentEngine(dep, lbengine.Options{
+	options := lbengine.Options{
 		Events: recorder,
 		Force:  cmd.Force,
-	})
+	}
+	if cmd.CommandOutput == "console" {
+		options.CommandOutput.Stdout = os.Stdout
+		options.CommandOutput.Stderr = os.Stderr
+	}
+	engine := lbengine.NewDeploymentEngine(dep, options)
 
 	// Invoke the requested flow within the deployment.
 	return engine.Invoke(ctx, cmd.Flow)

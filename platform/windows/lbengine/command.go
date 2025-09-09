@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -39,7 +38,7 @@ type commandEngine struct {
 	command    commandData
 	apps       lbdeploy.AppEvaluation
 	events     lbevent.Recorder
-	force      bool
+	output     CommandOutput
 	state      *engineState
 }
 
@@ -298,9 +297,18 @@ func (engine *commandEngine) invoke(ctx context.Context, apps lbdeploy.AppEvalua
 	// If the command started successfully, send its output to stdout and
 	// stderr as well as the output buffer, then wait for it to finish.
 	if err == nil {
-		// Tee stdout and stderr to the console.
-		r1 := io.TeeReader(stdout, os.Stdout)
-		r2 := io.TeeReader(stderr, os.Stderr)
+		// If requested, tee stdout and stderr to the output destination.
+		var r1, r2 io.Reader
+		if engine.output.Stdout == nil {
+			r1 = stdout
+		} else {
+			r1 = io.TeeReader(stdout, engine.output.Stdout)
+		}
+		if engine.output.Stderr == nil {
+			r2 = stderr
+		} else {
+			r2 = io.TeeReader(stderr, engine.output.Stderr)
+		}
 
 		// Combine the output of both stdout and stderr.
 		merged := mergereader.New(r1, r2)

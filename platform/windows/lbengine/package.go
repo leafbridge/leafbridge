@@ -25,7 +25,7 @@ type packageEngine struct {
 	action     actionData
 	pkg        packageData
 	events     lbevent.Recorder
-	force      bool
+	output     CommandOutput
 	state      *engineState
 }
 
@@ -80,7 +80,7 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 		if !appEvaluation.ActionsNeeded(mode) {
 			// If all app installs and uninstalls are already in effect,
 			// and command invocation isn't forced, skip this command.
-			if (!engine.force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
+			if (!engine.invocation.Force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Invocation:  engine.invocation.ID,
@@ -188,7 +188,7 @@ func (engine *packageEngine) invokePackageCommand(ctx context.Context, command c
 		command:    command,
 		apps:       apps,
 		events:     engine.events,
-		force:      engine.force,
+		output:     engine.output,
 		state:      engine.state,
 	}
 
@@ -276,7 +276,7 @@ func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command c
 		command:    command,
 		apps:       apps,
 		events:     engine.events,
-		force:      engine.force,
+		output:     engine.output,
 		state:      engine.state,
 	}
 
@@ -296,7 +296,7 @@ func (engine *packageEngine) invokeAppCommand(ctx context.Context, command comma
 		command:    command,
 		apps:       apps,
 		events:     engine.events,
-		force:      engine.force,
+		output:     engine.output,
 		state:      engine.state,
 	}
 

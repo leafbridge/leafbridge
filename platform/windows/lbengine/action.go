@@ -23,7 +23,7 @@ type actionEngine struct {
 	flow       flowData
 	action     actionData
 	events     lbevent.Recorder
-	force      bool
+	output     CommandOutput
 	state      *engineState
 }
 
@@ -106,7 +106,7 @@ func (engine *actionEngine) startFlow(ctx context.Context) error {
 			Definition: definition,
 		},
 		events: engine.events,
-		force:  engine.force,
+		output: engine.output,
 		state:  engine.state,
 	}
 
@@ -134,7 +134,7 @@ func (engine *actionEngine) preparePackage(ctx context.Context) error {
 			Definition: pkg,
 		},
 		events: engine.events,
-		force:  engine.force,
+		output: engine.output,
 		state:  engine.state,
 	}
 
@@ -163,7 +163,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 				Definition: pkg,
 			},
 			events: engine.events,
-			force:  engine.force,
+			output: engine.output,
 			state:  engine.state,
 		}
 
@@ -195,7 +195,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		if !appEvaluation.ActionsNeeded(command.Mode) {
 			// If all app installs and uninstalls are already in effect,
 			// and command invocation isn't forced, skip this command.
-			if (!engine.force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
+			if (!engine.invocation.Force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Invocation:  engine.invocation.ID,
@@ -222,7 +222,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		command:    command,
 		apps:       appEvaluation,
 		events:     engine.events,
-		force:      engine.force,
+		output:     engine.output,
 		state:      engine.state,
 	}
 

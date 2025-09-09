@@ -10,6 +10,7 @@ type Invocation struct {
 	ID          InvocationID `json:"id"`
 	Host        string       `json:"host,omitempty"`
 	InitialFlow FlowID       `json:"initial-flow,omitempty"`
+	Force       bool         `json:"force,omitzero"`
 	Started     time.Time    `json:"started,omitzero"`
 
 	// TODO: Consider including a content hash of the deployment.
