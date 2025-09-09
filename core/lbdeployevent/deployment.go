@@ -37,6 +37,7 @@ func (e DeploymentStarted) Message() string {
 	var builder structformat.Builder
 
 	builder.WritePrimary(string(e.Deployment.ID))
+	builder.WritePrimary(string(e.Invocation.InitialFlow))
 	builder.WriteStandard(fmt.Sprintf("Starting invocation \"%s\".", e.Invocation.ID))
 
 	return builder.String()
@@ -54,6 +55,7 @@ func (e DeploymentStarted) Attrs() []slog.Attr {
 	return []slog.Attr{
 		slog.String("invocation", string(e.Invocation.ID)),
 		slog.String("deployment", string(e.Deployment.ID)),
+		slog.String("initial-flow", string(e.Invocation.InitialFlow)),
 	}
 }
 
