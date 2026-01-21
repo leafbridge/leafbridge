@@ -134,6 +134,9 @@ func (v Value) VersionSet() datatype.VersionSet {
 	if value, ok := v.data.(datatype.VersionSet); ok {
 		return value
 	} else if value, ok := v.data.(datatype.Version); ok {
+		if value == "" {
+			return nil
+		}
 		return datatype.NewVersionSet(value)
 	}
 	return nil
