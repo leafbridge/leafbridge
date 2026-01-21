@@ -3,7 +3,7 @@ module github.com/leafbridge/leafbridge
 go 1.25.0
 
 require (
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.13.0
 	github.com/gentlemanautomaton/portableexecutable v0.0.0-20250828093959-90f209bd3cbb
 	github.com/gentlemanautomaton/structformat v0.0.0-20241022070736-a530f00cc986
 	github.com/gentlemanautomaton/volmgmt v0.0.0-20250409182909-ce74450cc0fc
@@ -11,8 +11,8 @@ require (
 	github.com/gentlemanautomaton/winobj v0.0.0-20250415033905-21826c52876d
 	github.com/gentlemanautomaton/winproc v0.0.0-20250324203923-17a93b0c29c0
 	github.com/josephspurrier/goversioninfo v1.5.0
-	golang.org/x/mod v0.27.0
-	golang.org/x/sys v0.36.0
+	golang.org/x/mod v0.32.0
+	golang.org/x/sys v0.40.0
 	golang.org/x/text v0.28.0
 )
 
