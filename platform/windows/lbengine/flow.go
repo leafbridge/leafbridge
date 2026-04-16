@@ -221,14 +221,11 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 
 			// Invoke the action.
 			if err := ae.Invoke(ctx); err != nil {
+				stats.ActionsFailed++
+				errs = append(errs, err)
 				if ctx.Err() == err {
 					break // Always stop when the context is cancelled.
-				}
-
-				stats.ActionsFailed++
-
-				errs = append(errs, err)
-				if behavior.OnError != lbdeploy.OnErrorContinue {
+				} else if behavior.OnError != lbdeploy.OnErrorContinue {
 					break
 				}
 			} else {
