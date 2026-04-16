@@ -82,7 +82,7 @@ func (engine flowEngine) Invoke(ctx context.Context) error {
 			Failed:     failed,
 		})
 
-		// If any of the constrains failed, skip execution.
+		// If any of the constraints failed, skip execution.
 		if len(failed) > 0 {
 			return nil
 		}

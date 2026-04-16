@@ -166,7 +166,7 @@ func (entry AppVersion) String() string {
 // match criteria.
 type AppCriteriaList []AppCriteria
 
-// AppSearch identifies an application and optionally provides matching
+// AppCriteria identifies an application and optionally provides matching
 // criteria for a specific version or range of versions.
 type AppCriteria struct {
 	App          AppID                 `json:"app"`
@@ -371,8 +371,8 @@ func (e AppEvaluation) ActionsNeeded(mode CommandMode) bool {
 	return false
 }
 
-// AppEvaluation is an evaluation of potential changes to the set of installed
-// applications.
+// AppInstallationEvaluation is an evaluation of applications that may need
+// to be installed.
 type AppInstallationEvaluation struct {
 	ToInstall        AppList
 	AlreadyInstalled AppList
@@ -401,8 +401,8 @@ func (e AppInstallationEvaluation) IsZero() bool {
 	return true
 }
 
-// AppEvaluation is an evaluation of potential changes to the set of installed
-// applications.
+// AppRemovalEvaluation is an evaluation of applications that may need
+// to be uninstalled.
 type AppRemovalEvaluation struct {
 	ToUninstall AppList
 	Missing     AppList
