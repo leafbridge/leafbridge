@@ -15,6 +15,7 @@ const (
 	CommandTypeExe                     = "exe"
 	CommandTypeMSIInstall              = "msi-install"
 	CommandTypeMSIUpdate               = "msi-update"
+	CommandTypeMSIRepairProductCode    = "msi-repair-product-code"
 	CommandTypeMSIUninstall            = "msi-uninstall"
 	CommandTypeMSIUninstallProductCode = "msi-uninstall-product-code"
 )
@@ -22,13 +23,18 @@ const (
 // IsAppBased returns true if the command applies to an application's product
 // code, and not to a provided executable or installer file.
 func (t CommandType) IsAppBased() bool {
-	return t == CommandTypeMSIUninstallProductCode
+	switch t {
+	case CommandTypeMSIRepairProductCode, CommandTypeMSIUninstallProductCode:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsMSI returns true if the command invokes msiexec.
 func (t CommandType) IsMSI() bool {
 	switch t {
-	case CommandTypeMSIInstall, CommandTypeMSIUpdate, CommandTypeMSIUninstall, CommandTypeMSIUninstallProductCode:
+	case CommandTypeMSIInstall, CommandTypeMSIUpdate, CommandTypeMSIRepairProductCode, CommandTypeMSIUninstall, CommandTypeMSIUninstallProductCode:
 		return true
 	default:
 		return false
@@ -69,6 +75,9 @@ type ExecutableID string
 type Command struct {
 	// Installs is a list of applications that the command installs.
 	Installs AppList `json:"installs,omitempty"`
+
+	// Repairs is a list of applications that the command repairs.
+	Repairs AppCriteriaList `json:"repairs,omitempty"`
 
 	// Uninstalls is a list of applications that the command uninstalls.
 	Uninstalls AppCriteriaList `json:"uninstalls,omitempty"`

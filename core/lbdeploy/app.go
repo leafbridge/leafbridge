@@ -286,6 +286,38 @@ func (m AppStatusMap) EvaluateAppInstallation(list AppList) (evaluation AppInsta
 	return
 }
 
+// EvaluateAppRepair evaluates the potential repair of any applications
+// matching the given criteria, according to the status map.
+func (m AppStatusMap) EvaluateAppRepair(list AppCriteriaList) (evaluation AppRepairEvaluation) {
+	for _, criteria := range list {
+		if status, ok := m[criteria.App]; ok {
+			if !status.Installed {
+				evaluation.Missing = append(evaluation.Missing, AppVersion{App: criteria.App, Version: criteria.Version})
+				continue
+			}
+			if len(status.Versions) > 0 {
+				// If there is more than one version present, start with the
+				// the lowest version number and work forward. This can be
+				// important in case older versions must be repaired before
+				// newer versions.
+				versions := status.Versions.List()
+				for _, version := range versions {
+					if criteria.Matches(AppVersion{App: criteria.App, Version: version}) {
+						evaluation.ToRepair = append(evaluation.ToRepair, AppVersion{App: criteria.App, Version: version})
+					}
+				}
+			} else {
+				if criteria.Matches(AppVersion{App: criteria.App}) {
+					evaluation.ToRepair = append(evaluation.ToRepair, AppVersion{App: criteria.App})
+				}
+			}
+		} else {
+			evaluation.Missing = append(evaluation.Missing, AppVersion{App: criteria.App, Version: criteria.Version})
+		}
+	}
+	return
+}
+
 // EvaluateAppRemoval evaluates the potential removal of any applications
 // matching the given criteria, according to the status map.
 func (m AppStatusMap) EvaluateAppRemoval(list AppCriteriaList) (evaluation AppRemovalEvaluation) {
@@ -336,6 +368,7 @@ type AppStatus struct {
 type AppEvaluation struct {
 	Status       AppStatusMap
 	Installation AppInstallationEvaluation
+	Repair       AppRepairEvaluation
 	Removal      AppRemovalEvaluation
 }
 
@@ -345,6 +378,9 @@ func (e AppEvaluation) IsZero() bool {
 		return false
 	}
 	if !e.Installation.IsZero() {
+		return false
+	}
+	if !e.Repair.IsZero() {
 		return false
 	}
 	if !e.Removal.IsZero() {
@@ -362,6 +398,9 @@ func (e AppEvaluation) ActionsNeeded(mode CommandMode) bool {
 		}
 	default:
 		if len(e.Installation.ToInstall) > 0 {
+			return true
+		}
+		if len(e.Repair.ToRepair) > 0 {
 			return true
 		}
 		if len(e.Removal.ToUninstall) > 0 {
@@ -393,6 +432,24 @@ func (e AppInstallationEvaluation) IsZero() bool {
 		return false
 	}
 	if len(e.Outdated) > 0 {
+		return false
+	}
+	if len(e.Missing) > 0 {
+		return false
+	}
+	return true
+}
+
+// AppRepairEvaluation is an evaluation of applications that may need
+// to be repaired.
+type AppRepairEvaluation struct {
+	ToRepair AppList
+	Missing  AppList
+}
+
+// IsZero returns true if the app repair evaluation is empty.
+func (e AppRepairEvaluation) IsZero() bool {
+	if len(e.ToRepair) > 0 {
 		return false
 	}
 	if len(e.Missing) > 0 {

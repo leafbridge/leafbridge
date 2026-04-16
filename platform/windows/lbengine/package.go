@@ -68,18 +68,18 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 
 	// Determine whether any app changes are anticipated.
 	ae := NewAppEngine(engine.deployment)
-	appEvaluation, err := ae.EvaluateAppChanges(commandDefinition.Installs, commandDefinition.Uninstalls)
+	appEvaluation, err := ae.EvaluateAppChanges(commandDefinition.Installs, commandDefinition.Repairs, commandDefinition.Uninstalls)
 	if err != nil {
 		return fmt.Errorf("the evaluation of potential application changes did not succeed: %w", err)
 	}
 
-	// If the command declares that it installs or uninstalls something,
-	// review the app evaluation to determine whether any application changes
-	// are anticpated.
-	if len(commandDefinition.Installs) > 0 || len(commandDefinition.Uninstalls) > 0 {
+	// If the command declares that it installs, repairs or uninstalls
+	// something, review the app evaluation to determine whether any
+	// application changes are anticpated.
+	if len(commandDefinition.Installs) > 0 || len(commandDefinition.Repairs) > 0 || len(commandDefinition.Uninstalls) > 0 {
 		if !appEvaluation.ActionsNeeded(mode) {
-			// If all app installs and uninstalls are already in effect,
-			// and command invocation isn't forced, skip this command.
+			// If all app installs, repairs and uninstalls are already in
+			// effect, and command invocation isn't forced, skip this command.
 			if (!engine.invocation.Force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{

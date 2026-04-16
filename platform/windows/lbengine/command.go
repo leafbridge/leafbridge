@@ -132,6 +132,13 @@ func (engine *commandEngine) InvokeArchive(ctx context.Context, files tempfs.Ext
 func (engine *commandEngine) InvokeApp(ctx context.Context) error {
 	// Verify that there is work to be done.
 	switch engine.command.Definition.Type {
+	case lbdeploy.CommandTypeMSIRepairProductCode:
+		if len(engine.command.Definition.Repairs) == 0 {
+			return fmt.Errorf("%s must provide at least one application to be repaired", engine.cmdDesc())
+		}
+		if len(engine.apps.Repair.ToRepair) == 0 {
+			return fmt.Errorf("none of the applications identified by %s can be repaired", engine.cmdDesc())
+		}
 	case lbdeploy.CommandTypeMSIUninstallProductCode:
 		if len(engine.command.Definition.Uninstalls) == 0 {
 			return fmt.Errorf("%s must provide at least one application to be uninstalled", engine.cmdDesc())
@@ -155,44 +162,75 @@ func (engine *commandEngine) InvokeApp(ctx context.Context) error {
 		return fmt.Errorf("failed to locate the Windows Installer executable: %w", err)
 	}
 
-	// Invoke an uninstall command for each app that is to be uninstalled.
-	for _, subject := range engine.apps.Removal.ToUninstall {
-		// Get information about the application from the deployment.
-		appData, exists := engine.deployment.Apps[subject.App]
-		if !exists {
-			return fmt.Errorf("%s refers to an application \"%s\" that is not defined in the \"%s\" deployment", engine.cmdDesc(), subject.App, engine.deployment.ID)
-		}
+	// Handle app-based command types.
+	//
+	// TODO: Switch to the Microsoft Installer API:
+	// https://learn.microsoft.com/en-us/windows/win32/api/msi/nf-msi-msiinstallproductw
 
-		// Make sure a product code is defined for this application.
-		productCode := appData.FindProductCode(subject)
-		if productCode == "" {
-			return fmt.Errorf("%s refers to an application \"%s\" that does not have a product code", engine.cmdDesc(), subject.App)
-		}
+	switch engine.command.Definition.Type {
+	case lbdeploy.CommandTypeMSIUninstallProductCode:
+		// Invoke an uninstall command for each app that is to be uninstalled.
+		for _, subject := range engine.apps.Removal.ToUninstall {
+			// Get information about the application from the deployment.
+			appData, exists := engine.deployment.Apps[subject.App]
+			if !exists {
+				return fmt.Errorf("%s refers to an application \"%s\" that is not defined in the \"%s\" deployment", engine.cmdDesc(), subject.App, engine.deployment.ID)
+			}
 
-		// Limit the evaluation to the app we are about to uninstall.
-		evaluation := engine.apps
-		evaluation.Removal.ToUninstall = lbdeploy.AppList{subject}
+			// Make sure a product code is defined for this application.
+			productCode := appData.FindProductCode(subject)
+			if productCode == "" {
+				return fmt.Errorf("%s refers to an application \"%s\" that does not have a product code", engine.cmdDesc(), subject.App)
+			}
 
-		// Prepare the command arguments.
-		args := engine.command.Definition.Args
+			// Limit the evaluation to the app we are about to uninstall.
+			evaluation := engine.apps
+			evaluation.Removal.ToUninstall = lbdeploy.AppList{subject}
 
-		// Handle app-based command types.
-		//
-		// TODO: Switch to the Microsoft Installer API:
-		// https://learn.microsoft.com/en-us/windows/win32/api/msi/nf-msi-msiinstallproductw
-		switch engine.command.Definition.Type {
-		case lbdeploy.CommandTypeMSIUninstallProductCode:
+			// Prepare the command arguments.
+			args := engine.command.Definition.Args
 			args = append([]string{"/x", string(productCode), "/quiet", "/norestart"}, args...)
-		default:
-			return fmt.Errorf("%s uses a \"%s\" command type that is not recognized or is not suitable for app-based invocation", engine.cmdDesc(), engine.command.Definition.Type)
-		}
 
-		if err := engine.invoke(ctx, evaluation, workingDir, execPath, args); err != nil {
-			return err
+			// Invoke the uninstall command.
+			if err := engine.invoke(ctx, evaluation, workingDir, execPath, args); err != nil {
+				return err
+			}
 		}
+		return nil
+
+	case lbdeploy.CommandTypeMSIRepairProductCode:
+		// Invoke a repair command for each app that is to be repaired.
+		for _, subject := range engine.apps.Repair.ToRepair {
+			// Get information about the application from the deployment.
+			appData, exists := engine.deployment.Apps[subject.App]
+			if !exists {
+				return fmt.Errorf("%s refers to an application \"%s\" that is not defined in the \"%s\" deployment", engine.cmdDesc(), subject.App, engine.deployment.ID)
+			}
+
+			// Make sure a product code is defined for this application.
+			productCode := appData.FindProductCode(subject)
+			if productCode == "" {
+				return fmt.Errorf("%s refers to an application \"%s\" that does not have a product code", engine.cmdDesc(), subject.App)
+			}
+
+			// Limit the evaluation to the app we are about to repair.
+			evaluation := engine.apps
+			evaluation.Repair.ToRepair = lbdeploy.AppList{subject}
+
+			// Prepare the command arguments.
+			args := engine.command.Definition.Args
+			args = append([]string{"/fa", string(productCode), "/quiet", "/norestart"}, args...)
+
+			// Invoke the repair command.
+			if err := engine.invoke(ctx, evaluation, workingDir, execPath, args); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("%s uses a \"%s\" command type that is not recognized or is not suitable for app-based invocation", engine.cmdDesc(), engine.command.Definition.Type)
 	}
-
-	return nil
 }
 
 func (engine *commandEngine) invokePath(ctx context.Context, execPath string) (err error) {

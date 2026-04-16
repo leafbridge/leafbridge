@@ -3,6 +3,7 @@ package lbdeployevent
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -73,8 +74,9 @@ func (e CommandSkipped) Message() string {
 			builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Installation.Missing), fieldformat.Label("not installed"))
 		}
 	} else {
-		if len(e.Apps.Removal.Missing) > 0 {
-			builder.WriteNote(fmt.Sprintf("[%s]", e.Apps.Removal.Missing), fieldformat.Label("already uninstalled"))
+		if len(e.Apps.Removal.Missing) > 0 || len(e.Apps.Repair.Missing) > 0 {
+			missing := slices.Concat(e.Apps.Removal.Missing, e.Apps.Repair.Missing)
+			builder.WriteNote(fmt.Sprintf("[%s]", missing), fieldformat.Label("not installed"))
 		}
 	}
 
@@ -149,16 +151,28 @@ func (e CommandStarted) Message() string {
 	} else {
 		builder.WritePrimary(fmt.Sprintf("%s.%s", e.Package, e.Command))
 	}
-	switch installs, uninstalls := len(e.Apps.Installation.ToInstall), len(e.Apps.Removal.ToUninstall); {
-	case installs > 0 && uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to install %s and uninstall %s", e.Apps.Installation.ToInstall, e.Apps.Removal.ToUninstall))
-	case installs > 0 && uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to install %s", e.Apps.Installation.ToInstall))
-	case uninstalls > 0:
-		builder.WritePrimary(fmt.Sprintf("Starting command to uninstall %s", e.Apps.Removal.ToUninstall))
+
+	var verbs []string
+	if len(e.Apps.Removal.ToUninstall) > 0 {
+		verbs = append(verbs, fmt.Sprintf("uninstall %s", e.Apps.Removal.ToUninstall))
+	}
+	if len(e.Apps.Installation.ToInstall) > 0 {
+		verbs = append(verbs, fmt.Sprintf("install %s", e.Apps.Installation.ToInstall))
+	}
+	if len(e.Apps.Repair.ToRepair) > 0 {
+		verbs = append(verbs, fmt.Sprintf("repair %s", e.Apps.Repair.ToRepair))
+	}
+	switch len(verbs) {
 	default:
 		builder.WritePrimary("Starting command")
+	case 1:
+		builder.WritePrimary(fmt.Sprintf("Starting command to %s", verbs[0]))
+	case 2:
+		builder.WritePrimary(fmt.Sprintf("Starting command to %s and %s", verbs[0], verbs[1]))
+	case 3:
+		builder.WritePrimary(fmt.Sprintf("Starting command to %s, %s and %s", verbs[0], verbs[1], verbs[2]))
 	}
+
 	builder.WriteStandard(e.CommandLine)
 
 	return builder.String()
@@ -351,6 +365,9 @@ func appEvaluationAttr(key string, evaluation lbdeploy.AppEvaluation) slog.Attr 
 			"already-installed", evaluation.Installation.AlreadyInstalled,
 			"superseded", evaluation.Installation.Superseded,
 			"outdated", evaluation.Installation.Outdated),
+		slog.Group("repair",
+			"to-repair", evaluation.Repair.ToRepair,
+			"not-installed", evaluation.Repair.Missing),
 		slog.Group("removal",
 			"to-uninstall", evaluation.Removal.ToUninstall,
 			"already-uninstalled", evaluation.Removal.Missing),

@@ -13,7 +13,6 @@ import (
 	"github.com/leafbridge/leafbridge/core/idset"
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
 	"github.com/leafbridge/leafbridge/core/lbvalue"
-	"github.com/leafbridge/leafbridge/platform/windows/localregistry"
 )
 
 // AppEngine is responsible for evaluating the status of applications on the
@@ -171,6 +170,7 @@ func (engine AppEngine) Status(app lbdeploy.AppID) (status lbdeploy.AppStatus, e
 	return status, nil
 }
 
+/*
 func (engine AppEngine) getVersionFromRegistry(resource lbdeploy.RegistryValueResourceID) (datatype.Version, error) {
 	resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
 	ref, err := resolver.ResolveValue(resource)
@@ -197,6 +197,7 @@ func (engine AppEngine) getVersionFromRegistry(resource lbdeploy.RegistryValueRe
 	}
 	return "", fmt.Errorf("the \"%s\" registry value exists but does not contain a version", ref.Name)
 }
+*/
 
 // StatusMap returns the app status for each of the given app IDs in a status
 // map.
@@ -217,9 +218,12 @@ func (engine AppEngine) StatusMap(apps ...lbdeploy.AppID) (lbdeploy.AppStatusMap
 
 // EvaluateAppChanges evaluates the changes needed to effect the given set of
 // application installs and uninstalls.
-func (engine AppEngine) EvaluateAppChanges(installs lbdeploy.AppList, uninstalls lbdeploy.AppCriteriaList) (changes lbdeploy.AppEvaluation, err error) {
+func (engine AppEngine) EvaluateAppChanges(installs lbdeploy.AppList, repairs, uninstalls lbdeploy.AppCriteriaList) (changes lbdeploy.AppEvaluation, err error) {
 	apps := make(appSet, len(installs)+len(uninstalls))
 	for _, entry := range installs {
+		apps.Add(entry.App)
+	}
+	for _, entry := range repairs {
 		apps.Add(entry.App)
 	}
 	for _, entry := range uninstalls {
@@ -234,6 +238,7 @@ func (engine AppEngine) EvaluateAppChanges(installs lbdeploy.AppList, uninstalls
 	return lbdeploy.AppEvaluation{
 		Status:       status,
 		Installation: status.EvaluateAppInstallation(installs),
+		Repair:       status.EvaluateAppRepair(repairs),
 		Removal:      status.EvaluateAppRemoval(uninstalls),
 	}, nil
 }
