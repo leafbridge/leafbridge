@@ -258,7 +258,14 @@ func (engine VariableEngine) evaluateSingle(id lbdeploy.VariableID, variable lbd
 			return lbvalue.Zero(ref.Type), err
 		}
 		defer key.Close()
-		return key.GetValue(ref.Name, ref.Type)
+		result, err := key.GetValue(ref.Name, ref.Type)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return lbvalue.Zero(ref.Type), nil
+			}
+			return lbvalue.Zero(ref.Type), err
+		}
+		return result, nil
 	case lbdeploy.VariableSourceFileVersion, lbdeploy.VariableSourceProductVersion:
 		// Resolve and open the file.
 		none := lbvalue.Zero(lbvalue.KindVersion)
