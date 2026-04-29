@@ -79,19 +79,10 @@ func (engine VariableEngine) evaluate(id lbdeploy.VariableID, variable lbdeploy.
 		result, err = engine.evaluateMultiple(id, variable, cache, seen)
 	} else {
 		// Evaluate individual variables.
+		//
+		// If criteria have been supplied for the variable, this call will
+		// also apply them to the result.
 		result, err = engine.evaluateSingle(id, variable, cache, seen)
-
-		// If criteria have been supplied for the variable, use them to filter
-		// its value.
-		if err == nil && !variable.Criteria.IsZero() {
-			result, err = variable.Criteria.Filter(result)
-		}
-	}
-
-	// If we encountered an error, wrap it with information about the
-	// variable.
-	if err != nil {
-		err = variableSelfError(id, variable, err)
 	}
 
 	// Record the result in the cache if possible.
@@ -209,155 +200,171 @@ func (engine VariableEngine) evaluateMultiple(id lbdeploy.VariableID, variable l
 
 // evaluateSingle evaluates a single variable.
 func (engine VariableEngine) evaluateSingle(id lbdeploy.VariableID, variable lbdeploy.Variable, cache lbdeploy.VariableCache, seen variableSet) (lbvalue.Value, error) {
-	switch variable.Source {
-	case lbdeploy.VariableSourceSubvariable:
-		candidateID := lbdeploy.VariableID(variable.Subject)
-		candidate, found := engine.deployment.Variables[candidateID]
-		if !found {
-			return lbvalue.Value{}, variableSelfError(id, variable, fmt.Errorf("the \"%s\" variable is not defined in the deployment", variable.Subject))
-		}
-		return engine.evaluate(candidateID, candidate, cache, seen)
-	case lbdeploy.VariableSourceRegistryKeyValueNames:
-		if variable.Type.Kind() != lbvalue.KindVersionSet {
-			return lbvalue.Value{}, fmt.Errorf("only variables of type %s are currently supported when the variable source is %s, and the variable type is %s", lbvalue.KindVersionSet, variable.Source, variable.Type.Kind())
-		}
-		empty := lbvalue.Zero(lbvalue.KindVersionSet)
-		resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
-		ref, err := resolver.ResolveKey(lbdeploy.RegistryKeyResourceID(variable.Subject))
-		if err != nil {
-			return empty, err
-		}
-		key, err := localregistry.OpenKey(ref)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return empty, nil
+	result, err := func() (lbvalue.Value, error) {
+		switch variable.Source {
+		case lbdeploy.VariableSourceSubvariable:
+			candidateID := lbdeploy.VariableID(variable.Subject)
+			candidate, found := engine.deployment.Variables[candidateID]
+			if !found {
+				return lbvalue.Value{}, fmt.Errorf("the \"%s\" variable is not defined in the deployment", variable.Subject)
 			}
-			return empty, err
-		}
-		defer key.Close()
-		names, err := key.ReadValueNames()
-		if err != nil {
-			return empty, err
-		}
-		versions := make(datatype.VersionSet, len(names))
-		for _, name := range names {
-			versions.Add(datatype.Version(name))
-		}
-		return lbvalue.VersionSet(versions), nil
-	case lbdeploy.VariableSourceRegistryValue:
-		resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
-		ref, err := resolver.ResolveValue(lbdeploy.RegistryValueResourceID(variable.Subject))
-		if err != nil {
-			return lbvalue.Value{}, err
-		}
-		key, err := localregistry.OpenKey(ref.Key())
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return lbvalue.Zero(ref.Type), nil
+			return engine.evaluate(candidateID, candidate, cache, seen)
+		case lbdeploy.VariableSourceRegistryKeyValueNames:
+			if variable.Type.Kind() != lbvalue.KindVersionSet {
+				return lbvalue.Value{}, fmt.Errorf("only variables of type %s are currently supported when the variable source is %s, and the variable type is %s", lbvalue.KindVersionSet, variable.Source, variable.Type.Kind())
 			}
-			return lbvalue.Zero(ref.Type), err
-		}
-		defer key.Close()
-		result, err := key.GetValue(ref.Name, ref.Type)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return lbvalue.Zero(ref.Type), nil
+			empty := lbvalue.Zero(lbvalue.KindVersionSet)
+			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+			ref, err := resolver.ResolveKey(lbdeploy.RegistryKeyResourceID(variable.Subject))
+			if err != nil {
+				return empty, err
 			}
-			return lbvalue.Zero(ref.Type), err
-		}
-		return result, nil
-	case lbdeploy.VariableSourceFileVersion, lbdeploy.VariableSourceProductVersion:
-		// Resolve and open the file.
-		none := lbvalue.Zero(lbvalue.KindVersion)
-		fileID := lbdeploy.FileResourceID(variable.Subject)
-		resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
-		ref, err := resolver.ResolveFile(fileID)
-		if err != nil {
-			return none, err
-		}
-		file, err := localfs.OpenFile(ref)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return none, nil
+			key, err := localregistry.OpenKey(ref)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return empty, nil
+				}
+				return empty, err
 			}
-			path, _ := ref.Path()
-			return none, fileVersionError(fileID, path, err)
-		}
-		defer file.Close()
+			defer key.Close()
+			names, err := key.ReadValueNames()
+			if err != nil {
+				return empty, err
+			}
+			versions := make(datatype.VersionSet, len(names))
+			for _, name := range names {
+				versions.Add(datatype.Version(name))
+			}
+			return lbvalue.VersionSet(versions), nil
+		case lbdeploy.VariableSourceRegistryValue:
+			resolver := localregistry.NewResolver(engine.deployment.Resources.Registry)
+			ref, err := resolver.ResolveValue(lbdeploy.RegistryValueResourceID(variable.Subject))
+			if err != nil {
+				return lbvalue.Value{}, err
+			}
+			key, err := localregistry.OpenKey(ref.Key())
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return lbvalue.Zero(ref.Type), nil
+				}
+				return lbvalue.Zero(ref.Type), err
+			}
+			defer key.Close()
+			result, err := key.GetValue(ref.Name, ref.Type)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return lbvalue.Zero(ref.Type), nil
+				}
+				return lbvalue.Zero(ref.Type), err
+			}
+			return result, nil
+		case lbdeploy.VariableSourceFileVersion, lbdeploy.VariableSourceProductVersion:
+			// Resolve and open the file.
+			none := lbvalue.Zero(lbvalue.KindVersion)
+			fileID := lbdeploy.FileResourceID(variable.Subject)
+			resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+			ref, err := resolver.ResolveFile(fileID)
+			if err != nil {
+				return none, err
+			}
+			file, err := localfs.OpenFile(ref)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return none, nil
+				}
+				path, _ := ref.Path()
+				return none, fileVersionError(fileID, path, err)
+			}
+			defer file.Close()
 
-		// Make sure the file is a regular file.
-		fi, err := file.System().Stat()
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), err)
-		}
-		if !fi.Mode().IsRegular() {
-			return none, fileVersionError(fileID, file.Path(), errors.New("the path exists but it is not a regular file"))
-		}
+			// Make sure the file is a regular file.
+			fi, err := file.System().Stat()
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), err)
+			}
+			if !fi.Mode().IsRegular() {
+				return none, fileVersionError(fileID, file.Path(), errors.New("the path exists but it is not a regular file"))
+			}
 
-		// Create a portable executable reader.
-		pe, err := portableexecutable.NewReader(file.System())
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file could not be interpreted as a portable executable: %w", err))
-		}
+			// Create a portable executable reader.
+			pe, err := portableexecutable.NewReader(file.System())
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file could not be interpreted as a portable executable: %w", err))
+			}
 
-		// Look for a resource table.
-		resources := pe.DataDirectories().Get(imagefile.ResourceTableID)
-		if resources.IsZero() {
-			return none, fileVersionError(fileID, file.Path(), errors.New("the file does not contain a resource directory"))
-		}
+			// Look for a resource table.
+			resources := pe.DataDirectories().Get(imagefile.ResourceTableID)
+			if resources.IsZero() {
+				return none, fileVersionError(fileID, file.Path(), errors.New("the file does not contain a resource directory"))
+			}
 
-		// Create a resource directory reader.
-		resdir, err := resourcedirectory.NewReader(pe)
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's resource directory could not be opened: %w", err))
-		}
+			// Create a resource directory reader.
+			resdir, err := resourcedirectory.NewReader(pe)
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's resource directory could not be opened: %w", err))
+			}
 
-		// Ask the resource directory for version resources.
-		versions, err := resdir.ReadType(resourcetype.Version)
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's resource directory could not be queried: %w", err))
-		}
+			// Ask the resource directory for version resources.
+			versions, err := resdir.ReadType(resourcetype.Version)
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's resource directory could not be queried: %w", err))
+			}
 
-		// Use the first version resource in the list.
-		// TODO: Consider using a more intelligent selection process.
-		if len(versions) == 0 || !versions[0].Reference.IsTable() {
-			return none, fileVersionError(fileID, file.Path(), errors.New("the file's resource directory does not contain file version information"))
-		}
+			// Use the first version resource in the list.
+			// TODO: Consider using a more intelligent selection process.
+			if len(versions) == 0 || !versions[0].Reference.IsTable() {
+				return none, fileVersionError(fileID, file.Path(), errors.New("the file's resource directory does not contain file version information"))
+			}
 
-		// Get the table of supported languages for this version.
-		languages, err := resdir.ReadTable(versions[0].Reference.Table())
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information language table could not be queried: %w", err))
-		}
+			// Get the table of supported languages for this version.
+			languages, err := resdir.ReadTable(versions[0].Reference.Table())
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information language table could not be queried: %w", err))
+			}
 
-		// Either use language code 1033 (en-us) or use the first entry
-		// in the language list.
-		index := max(versions.Index(resourcedirectory.NewNumericID(1033)), 0)
-		if len(languages) == 0 || languages[index].Reference.IsTable() {
-			return none, fileVersionError(fileID, file.Path(), errors.New("the file's resource directory does not contain file version information"))
-		}
+			// Either use language code 1033 (en-us) or use the first entry
+			// in the language list.
+			index := max(versions.Index(resourcedirectory.NewNumericID(1033)), 0)
+			if len(languages) == 0 || languages[index].Reference.IsTable() {
+				return none, fileVersionError(fileID, file.Path(), errors.New("the file's resource directory does not contain file version information"))
+			}
 
-		// Pull the file version information into memory.
-		versionData, err := resdir.ReadData(languages[index].Reference.Data())
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information data could not be read: %w", err))
-		}
+			// Pull the file version information into memory.
+			versionData, err := resdir.ReadData(languages[index].Reference.Data())
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information data could not be read: %w", err))
+			}
 
-		// Search the file version data for suitable file and product
-		// versions.
-		fileVersion, productVersion, err := getFileVersionFromInfo(versionData)
-		if err != nil {
-			return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information data could not be parsed: %w", err))
-		}
+			// Search the file version data for suitable file and product
+			// versions.
+			fileVersion, productVersion, err := getFileVersionFromInfo(versionData)
+			if err != nil {
+				return none, fileVersionError(fileID, file.Path(), fmt.Errorf("the file's version information data could not be parsed: %w", err))
+			}
 
-		// Return the requested value.
-		if variable.Source == lbdeploy.VariableSourceFileVersion {
-			return lbvalue.Version(fileVersion), nil
+			// Return the requested value.
+			if variable.Source == lbdeploy.VariableSourceFileVersion {
+				return lbvalue.Version(fileVersion), nil
+			}
+			return lbvalue.Version(productVersion), nil
+		default:
+			return lbvalue.Value{}, fmt.Errorf("unrecognized variable source: %s", variable.Source)
 		}
-		return lbvalue.Version(productVersion), nil
-	default:
-		return lbvalue.Value{}, fmt.Errorf("unrecognized variable source: %s", variable.Source)
+	}()
+
+	// If criteria have been supplied for the variable, use them to filter
+	// its value.
+	if err == nil && !variable.Criteria.IsZero() {
+		result, err = variable.Criteria.Filter(result)
 	}
+
+	// If we encountered an error, wrap it with information about the
+	// variable.
+	if err != nil {
+		err = variableSelfError(id, variable, err)
+	}
+
+	return result, err
 }
 
 func getFileVersionFromInfo(data []byte) (file, product datatype.Version, err error) {
