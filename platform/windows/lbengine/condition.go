@@ -71,12 +71,12 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 				result, err := engine.evaluate("", candidate, cache, seen)
 				if err != nil {
 					return false, lbdeploy.ConditionError{
-						ID:           id,
-						Label:        condition.Label,
-						Type:         condition.Type,
-						Element:      lbdeploy.ConditionElementAny,
-						SubCondition: i,
-						Err:          err,
+						ID:      id,
+						Label:   condition.Label,
+						Type:    condition.Type,
+						Origin:  lbdeploy.ConditionErrorOriginElementAny,
+						Element: i,
+						Err:     err,
 					}
 				}
 				if result {
@@ -92,12 +92,12 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 				result, err := engine.evaluate("", candidate, cache, seen)
 				if err != nil {
 					return false, lbdeploy.ConditionError{
-						ID:           id,
-						Label:        condition.Label,
-						Type:         condition.Type,
-						Element:      lbdeploy.ConditionElementAll,
-						SubCondition: i,
-						Err:          err,
+						ID:      id,
+						Label:   condition.Label,
+						Type:    condition.Type,
+						Origin:  lbdeploy.ConditionErrorOriginElementAll,
+						Element: i,
+						Err:     err,
 					}
 				}
 				if !result {
@@ -246,10 +246,10 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 
 func conditionSelfError(id lbdeploy.ConditionID, c lbdeploy.Condition, err error) error {
 	return lbdeploy.ConditionError{
-		ID:      id,
-		Label:   c.Label,
-		Type:    c.Type,
-		Element: lbdeploy.ConditionElementSelf,
-		Err:     err,
+		ID:     id,
+		Label:  c.Label,
+		Type:   c.Type,
+		Origin: lbdeploy.ConditionErrorOriginSelf,
+		Err:    err,
 	}
 }

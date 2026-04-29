@@ -90,24 +90,24 @@ func (use ConditionUse) Plural() string {
 	}
 }
 
-// ConditionElement identifies an element of a condition.
-type ConditionElement int
+// ConditionErrorOrigin identifies the origin of a condition error.
+type ConditionErrorOrigin int
 
-// Elements of a condition that can lead to an error.
+// Potential origins of a condition error.
 const (
-	ConditionElementSelf ConditionElement = iota
-	ConditionElementAny
-	ConditionElementAll
+	ConditionErrorOriginSelf ConditionErrorOrigin = iota
+	ConditionErrorOriginElementAny
+	ConditionErrorOriginElementAll
 )
 
 // ConditionError is returned when a condition fails due to an error.
 type ConditionError struct {
-	ID           ConditionID
-	Label        string
-	Type         ConditionType
-	Element      ConditionElement
-	SubCondition int
-	Err          error
+	ID      ConditionID
+	Label   string
+	Type    ConditionType
+	Origin  ConditionErrorOrigin
+	Element int
+	Err     error
 }
 
 // Unwrap returns the underlying error for the condition.
@@ -127,11 +127,11 @@ func (e ConditionError) Error() string {
 		builder.WritePrimary(string(e.Label))
 	}
 
-	switch e.Element {
-	case ConditionElementAny:
-		builder.WritePrimary(fmt.Sprintf("Any [%d]", e.SubCondition))
-	case ConditionElementAll:
-		builder.WritePrimary(fmt.Sprintf("All [%d]", e.SubCondition))
+	switch e.Origin {
+	case ConditionErrorOriginElementAny:
+		builder.WritePrimary(fmt.Sprintf("Any [%d]", e.Element))
+	case ConditionErrorOriginElementAll:
+		builder.WritePrimary(fmt.Sprintf("All [%d]", e.Element))
 	default:
 		if e.Type != "" {
 			builder.WritePrimary(string(e.Type))
@@ -145,9 +145,9 @@ func (e ConditionError) Error() string {
 
 func conditionSelfError(c Condition, err error) error {
 	return ConditionError{
-		Label:   c.Label,
-		Type:    c.Type,
-		Element: ConditionElementSelf,
-		Err:     err,
+		Label:  c.Label,
+		Type:   c.Type,
+		Origin: ConditionErrorOriginSelf,
+		Err:    err,
 	}
 }

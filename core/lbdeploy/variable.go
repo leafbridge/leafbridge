@@ -21,6 +21,7 @@ type VariableSource string
 
 // Supported variable sources.
 const (
+	VariableSourceSubvariable           VariableSource = "variable"
 	VariableSourceRegistryKeyValueNames VariableSource = "resource.registry.key:value-names"
 	VariableSourceRegistryValue         VariableSource = "resource.registry.value"
 	VariableSourceFileVersion           VariableSource = "resource.file-system.file:file-version"
@@ -33,6 +34,9 @@ type VariableType string
 
 // Kind returns the kind of value indicated by the variable type.
 func (t VariableType) Kind() lbvalue.Kind {
+	if t == "" {
+		return lbvalue.KindUnknown
+	}
 	var k lbvalue.Kind
 	if err := k.UnmarshalText([]byte(t)); err != nil {
 		return lbvalue.KindUnknown
@@ -46,16 +50,28 @@ type Variable struct {
 	Source   VariableSource   `json:"source,omitempty"`
 	Subject  string           `json:"subject,omitempty"`
 	Type     VariableType     `json:"type,omitempty"`
+	Elements []Variable       `json:"elements,omitzero"`
 	Criteria lbvalue.Criteria `json:"criteria,omitzero"`
 }
+
+// VariableErrorOrigin identifies the origin of a variable error.
+type VariableErrorOrigin int
+
+// Potential origins of a variable error.
+const (
+	VariableErrorOriginSelf VariableErrorOrigin = iota
+	VariableErrorOriginElement
+)
 
 // VariableError is returned when a variable cannot be calculated due to an
 // error.
 type VariableError struct {
-	ID     VariableID
-	Label  string
-	Source VariableSource
-	Err    error
+	ID      VariableID
+	Label   string
+	Origin  VariableErrorOrigin
+	Source  VariableSource
+	Element int
+	Err     error
 }
 
 // Unwrap returns the underlying error for the variable.
@@ -75,11 +91,25 @@ func (e VariableError) Error() string {
 		builder.WritePrimary(string(e.Label))
 	}
 
-	if e.Source != "" {
-		builder.WritePrimary(string(e.Source))
+	switch e.Origin {
+	case VariableErrorOriginElement:
+		builder.WritePrimary(fmt.Sprintf("Element [%d]", e.Element))
+	default:
+		if e.Source != "" {
+			builder.WritePrimary(string(e.Source))
+		}
 	}
 
 	builder.WriteStandard(e.Err.Error())
 
 	return builder.String()
+}
+
+func variableSelfError(v Variable, err error) error {
+	return VariableError{
+		Label:  v.Label,
+		Source: v.Source,
+		Origin: VariableErrorOriginSelf,
+		Err:    err,
+	}
 }

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/leafbridge/leafbridge/core/lbvalue"
 )
 
 // DeploymentID is a unique identifier for a deployment.
@@ -38,6 +40,12 @@ func (dep Deployment) Validate() error {
 
 	for id := range dep.Conditions {
 		if err := dep.ValidateCondition(id); err != nil {
+			return err
+		}
+	}
+
+	for id := range dep.Variables {
+		if err := dep.ValidateVariable(id); err != nil {
 			return err
 		}
 	}
@@ -89,11 +97,11 @@ func (dep Deployment) validateCondition(condition Condition) error {
 	for i, subcondition := range condition.Any {
 		if err := dep.validateCondition(subcondition); err != nil {
 			return ConditionError{
-				Label:        condition.Label,
-				Type:         condition.Type,
-				Element:      ConditionElementAny,
-				SubCondition: i,
-				Err:          err,
+				Label:   condition.Label,
+				Type:    condition.Type,
+				Origin:  ConditionErrorOriginElementAny,
+				Element: i,
+				Err:     err,
 			}
 		}
 	}
@@ -102,11 +110,11 @@ func (dep Deployment) validateCondition(condition Condition) error {
 	for i, subcondition := range condition.All {
 		if err := dep.validateCondition(subcondition); err != nil {
 			return ConditionError{
-				Label:        condition.Label,
-				Type:         condition.Type,
-				Element:      ConditionElementAll,
-				SubCondition: i,
-				Err:          err,
+				Label:   condition.Label,
+				Type:    condition.Type,
+				Origin:  ConditionErrorOriginElementAll,
+				Element: i,
+				Err:     err,
 			}
 		}
 	}
@@ -176,6 +184,117 @@ func (dep Deployment) validateCondition(condition Condition) error {
 
 	if err != nil {
 		return conditionSelfError(condition, err)
+	}
+
+	return nil
+}
+
+// ValidateVariable returns an error if the given variable is not valid.
+func (dep Deployment) ValidateVariable(variable VariableID) error {
+	definition, found := dep.Variables[variable]
+	if !found {
+		return fmt.Errorf("the variable \"%s\" does not exist within the \"%s\" deployment", variable, dep.ID)
+	}
+
+	if err := dep.validateVariable(definition); err != nil {
+		return fmt.Errorf("the \"%s\" variable or one of its subvariables is not valid: %w", variable, err)
+	}
+
+	return nil
+}
+
+func (dep Deployment) validateVariable(variable Variable) error {
+	var (
+		hasSource   = variable.Source != ""
+		hasElements = len(variable.Elements) > 0
+	)
+
+	fields := make([]string, 0, 2)
+	if hasSource {
+		fields = append(fields, "source")
+	}
+	if hasElements {
+		fields = append(fields, "elements")
+	}
+
+	switch len(fields) {
+	case 0:
+		return variableSelfError(variable, errors.New("the variable does not specify a source"))
+	case 1:
+	default:
+		return variableSelfError(variable, fmt.Errorf("the following fields are present, which are mutually exclusive: %s", strings.Join(fields, ", ")))
+	}
+
+	// Validate elements.
+	for i, subvariable := range variable.Elements {
+		// TODO: Check compatibility of types.
+		if err := dep.validateVariable(subvariable); err != nil {
+			return VariableError{
+				Label:   subvariable.Label,
+				Source:  subvariable.Source,
+				Origin:  VariableErrorOriginElement,
+				Element: i,
+				Err:     err,
+			}
+		}
+	}
+
+	if !hasSource {
+		return nil
+	}
+
+	err := func() error {
+		// Validate the variable's type, if specified.
+		if variable.Type != "" && variable.Type.Kind() == lbvalue.KindUnknown {
+			return fmt.Errorf("the variable type is not recognized: %s", variable.Type)
+		}
+
+		// Validate the variable based on its source.
+		switch variable.Source {
+		case VariableSourceSubvariable:
+			if variable.Subject == "" {
+				return errors.New("the variable does not provide a variable ID")
+			}
+			if _, found := dep.Variables[VariableID(variable.Subject)]; !found {
+				return fmt.Errorf("the variable references a variable ID that is not defined: %s", variable.Subject)
+			}
+			// TODO: Check for recursive variables?
+		case VariableSourceRegistryKeyValueNames:
+			if variable.Subject == "" {
+				return errors.New("the variable does not provide a registry key resource ID")
+			}
+			if _, found := dep.Resources.Registry.Keys[RegistryKeyResourceID(variable.Subject)]; !found {
+				return fmt.Errorf("the variable references a registry key resource ID that is not defined: %s", variable.Subject)
+			}
+		case VariableSourceRegistryValue:
+			if variable.Subject == "" {
+				return errors.New("the variable does not provide a registry value resource ID")
+			}
+			if _, found := dep.Resources.Registry.Values[RegistryValueResourceID(variable.Subject)]; !found {
+				return fmt.Errorf("the variable references a registry value resource ID that is not defined: %s", variable.Subject)
+			}
+		case VariableSourceFileVersion:
+			if variable.Subject == "" {
+				return errors.New("the variable does not provide a file resource ID")
+			}
+			if _, found := dep.Resources.FileSystem.Files[FileResourceID(variable.Subject)]; !found {
+				return fmt.Errorf("the variable references a file resource ID that is not defined: %s", variable.Subject)
+			}
+		case VariableSourceProductVersion:
+			if variable.Subject == "" {
+				return errors.New("the variable does not provide a file resource ID")
+			}
+			if _, found := dep.Resources.FileSystem.Files[FileResourceID(variable.Subject)]; !found {
+				return fmt.Errorf("the variable references a file resource ID that is not defined: %s", variable.Subject)
+			}
+		default:
+			return fmt.Errorf("the variable source is not recognized: %s", variable.Source)
+		}
+		return nil
+	}()
+
+	if err != nil {
+		return variableSelfError(variable, err)
 	}
 
 	return nil
