@@ -66,11 +66,6 @@ func (resolver Resolver) ResolveKey(key lbdeploy.RegistryKeyResourceID) (ref lbd
 	// Look up the registry key by its ID.
 	data, exists := resolver.reg.Keys[key]
 	if !exists {
-		if candidate, err := resolver.ResolveRoot(key, data.View); err == nil {
-			return lbdeploy.RegistryKeyRef{Root: candidate}, nil
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return lbdeploy.RegistryKeyRef{}, err
-		}
 		return lbdeploy.RegistryKeyRef{}, fmt.Errorf("the \"%s\" registry key is not defined in the deployment's resources", key)
 	}
 
