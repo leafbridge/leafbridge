@@ -11,8 +11,8 @@ require (
 	github.com/gentlemanautomaton/winobj v0.0.0-20260416043125-4893284bb695
 	github.com/gentlemanautomaton/winproc v0.0.0-20260416043642-b05e749e6536
 	github.com/josephspurrier/goversioninfo v1.5.0
-	golang.org/x/mod v0.35.0
-	golang.org/x/sys v0.43.0
+	golang.org/x/mod v0.36.0
+	golang.org/x/sys v0.44.0
 	golang.org/x/text v0.28.0
 )
 
