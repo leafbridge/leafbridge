@@ -50,6 +50,10 @@ func (dep Deployment) Validate() error {
 		}
 	}
 
+	if err := dep.Resources.Validate(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
