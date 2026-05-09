@@ -46,11 +46,18 @@ func (content PackageContent) String() string {
 // PackageType declares the type of a package.
 type PackageType string
 
+// Package types.
+const (
+	PackageTypeSoftware PackageType = "software"
+	PackageTypeArchive  PackageType = "archive"
+	PackageTypeFile     PackageType = "file"
+)
+
 // IsArchive returns true if the package type is an archive that must be
 // extracted before use.
 func (t PackageType) IsArchive() bool {
 	switch t {
-	case "archive":
+	case PackageTypeArchive:
 		return true
 	default:
 		return false
@@ -59,6 +66,18 @@ func (t PackageType) IsArchive() bool {
 
 // PackageFormat declares the format of a package.
 type PackageFormat string
+
+// Software package formats.
+const (
+	SoftwarePackageFormatExe PackageFormat = "exe"
+	SoftwarePackageFormatMSI PackageFormat = "msi"
+	SoftwarePackageFormatMSP PackageFormat = "msp"
+)
+
+// Archive package formats.
+const (
+	ArchivePackageFormatZip PackageFormat = "zip"
+)
 
 // Package defines a deployment package.
 //
@@ -86,12 +105,19 @@ func (pkg Package) FileName() string {
 // If the package type is not recognized, it returns "file".
 func (pkg Package) FileExtension() string {
 	switch pkg.Type {
-	case "exe", "msi", "msp":
-		return string(pkg.Type)
-	case "archive":
+	case PackageTypeSoftware:
 		switch pkg.Format {
-		case "zip":
-			return "zip"
+		case SoftwarePackageFormatExe, SoftwarePackageFormatMSI, SoftwarePackageFormatMSP:
+			return string(pkg.Format)
+		}
+	case PackageTypeArchive:
+		switch pkg.Format {
+		case ArchivePackageFormatZip:
+			return string(pkg.Format)
+		}
+	case PackageTypeFile:
+		if pkg.Format != "" {
+			return string(pkg.Format)
 		}
 	}
 	return "file"
@@ -102,12 +128,25 @@ func (pkg Package) FileExtension() string {
 func (pkg Package) Validate() error {
 	// Validate package type and format.
 	switch pkg.Type {
-	case "exe", "msi", "msp":
-	case "archive":
+	case PackageTypeSoftware:
 		switch pkg.Format {
-		case "zip":
+		case SoftwarePackageFormatExe, SoftwarePackageFormatMSI, SoftwarePackageFormatMSP:
+		case "":
+			return fmt.Errorf("a software format is required for %s packages", pkg.Type)
 		default:
-			return fmt.Errorf("the package format \"%s\" is not a recognized format for %s packages", pkg.Format, pkg.Type)
+			return fmt.Errorf("the software format \"%s\" is not a recognized format for %s packages", pkg.Format, pkg.Type)
+		}
+	case PackageTypeArchive:
+		switch pkg.Format {
+		case ArchivePackageFormatZip:
+		case "":
+			return fmt.Errorf("an archive format is required for %s packages", pkg.Type)
+		default:
+			return fmt.Errorf("the archive format \"%s\" is not a recognized format for %s packages", pkg.Format, pkg.Type)
+		}
+	case PackageTypeFile:
+		if pkg.Format == "" {
+			return fmt.Errorf("a file format is required for %s packages", pkg.Type)
 		}
 	default:
 		return fmt.Errorf("the package type \"%s\" is not recognized", pkg.Type)
@@ -128,14 +167,19 @@ func (pkg Package) Validate() error {
 	// Validate package commands.
 	for id, command := range pkg.Commands {
 		if command.Executable != "" {
-			if pkg.Type != "archive" {
+			if pkg.Type != PackageTypeArchive {
 				return fmt.Errorf("package command \"%s\": an executable file ID is only valid for archive packages", id)
 			}
 			if _, ok := pkg.Files[PackageFileID(command.Executable)]; !ok {
 				return fmt.Errorf("package command \"%s\": the executable file ID refers to package file \"%s\", which is not defined in the package file set", id, command.Executable)
 			}
+		} else {
+			if pkg.Type != PackageTypeSoftware {
+				return fmt.Errorf("package commands are only valid for software and archive packages, but this is a %s package", pkg.Type)
+			}
 		}
 	}
+
 	return nil
 }
 
