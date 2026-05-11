@@ -34,40 +34,30 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
-		ActionType:  engine.action.Definition.Type,
+		ActionType:  engine.action.Definition.Type(),
 	})
 
 	// Record the time that the action started.
 	started := time.Now()
 
 	// Execute the action.
-	err := func() error {
-		switch engine.action.Definition.Type {
-		case lbdeploy.ActionStartFlow:
-			if err := engine.startFlow(ctx); err != nil {
-				return err
-			}
-		case lbdeploy.ActionPreparePackage:
-			if err := engine.preparePackage(ctx); err != nil {
-				return err
-			}
-		case lbdeploy.ActionInvokeCommand:
-			if err := engine.invokeCommand(ctx); err != nil {
-				return err
-			}
-		case lbdeploy.ActionCopyFile:
-			if err := engine.copyFile(ctx); err != nil {
-				return err
-			}
-		case lbdeploy.ActionDeleteFile:
-			if err := engine.deleteFile(ctx); err != nil {
-				return err
-			}
+	var err error
+	{
+		switch action := engine.action.Definition.(type) {
+		case lbdeploy.StartFlowAction:
+			err = engine.startFlow(ctx, action)
+		case lbdeploy.PreparePackageAction:
+			err = engine.preparePackage(ctx, action)
+		case lbdeploy.InvokeCommandAction:
+			err = engine.invokeCommand(ctx, action)
+		case lbdeploy.CopyFileAction:
+			err = engine.copyFile(ctx)
+		case lbdeploy.DeleteFileAction:
+			err = engine.deleteFile(ctx)
 		default:
-			return fmt.Errorf("unrecognized deployment action type \"%s\"", engine.action.Definition.Type)
+			err = fmt.Errorf("unrecognized deployment action type \"%s\"", engine.action.Definition.Type())
 		}
-		return nil
-	}()
+	}
 
 	// Record the time that the action stopped.
 	stopped := time.Now()
@@ -78,7 +68,7 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
-		ActionType:  engine.action.Definition.Type,
+		ActionType:  engine.action.Definition.Type(),
 		Started:     started,
 		Stopped:     stopped,
 		Err:         err,
@@ -88,8 +78,8 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 }
 
 // startFlow starts another flow within the LeafBridge deployment.
-func (engine *actionEngine) startFlow(ctx context.Context) error {
-	flow := engine.action.Definition.Flow
+func (engine *actionEngine) startFlow(ctx context.Context, action lbdeploy.StartFlowAction) error {
+	flow := action.Flow
 
 	// Find the requested flow within the deployment.
 	definition, found := engine.deployment.Flows[flow]
@@ -116,11 +106,11 @@ func (engine *actionEngine) startFlow(ctx context.Context) error {
 
 // preparePackage performs a package preparation action as part of a
 // LeafBridge deployment.
-func (engine *actionEngine) preparePackage(ctx context.Context) error {
+func (engine *actionEngine) preparePackage(ctx context.Context, action lbdeploy.PreparePackageAction) error {
 	// Look up the package by its ID.
-	pkg, found := engine.deployment.Resources.Packages[engine.action.Definition.Package]
+	pkg, found := engine.deployment.Resources.Packages[action.Package]
 	if !found {
-		return fmt.Errorf("the \"%s\" package does not exist within the \"%s\" deployment", engine.action.Definition.Package, engine.deployment.ID)
+		return fmt.Errorf("the \"%s\" package does not exist within the \"%s\" deployment", action.Package, engine.deployment.ID)
 	}
 
 	// Prepare a package engine.
@@ -130,7 +120,7 @@ func (engine *actionEngine) preparePackage(ctx context.Context) error {
 		flow:       engine.flow,
 		action:     engine.action,
 		pkg: packageData{
-			ID:         engine.action.Definition.Package,
+			ID:         action.Package,
 			Definition: pkg,
 		},
 		events: engine.events,
@@ -143,13 +133,13 @@ func (engine *actionEngine) preparePackage(ctx context.Context) error {
 }
 
 // invokeCommand invokes a command action.
-func (engine *actionEngine) invokeCommand(ctx context.Context) error {
+func (engine *actionEngine) invokeCommand(ctx context.Context, action lbdeploy.InvokeCommandAction) error {
 	// Special handling for package-based commands.
-	if engine.action.Definition.Package != "" {
+	if action.Package != "" {
 		// Look up the package by its ID.
-		pkg, found := engine.deployment.Resources.Packages[engine.action.Definition.Package]
+		pkg, found := engine.deployment.Resources.Packages[action.Package]
 		if !found {
-			return fmt.Errorf("the \"%s\" package does not exist within the \"%s\" deployment", engine.action.Definition.Package, engine.deployment.ID)
+			return fmt.Errorf("the \"%s\" package does not exist within the \"%s\" deployment", action.Package, engine.deployment.ID)
 		}
 
 		// Prepare a package engine.
@@ -159,7 +149,7 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 			flow:       engine.flow,
 			action:     engine.action,
 			pkg: packageData{
-				ID:         engine.action.Definition.Package,
+				ID:         action.Package,
 				Definition: pkg,
 			},
 			events: engine.events,
@@ -168,17 +158,17 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		}
 
 		// Execute the package command via the package engine.
-		return pe.InvokeCommand(ctx, engine.action.Definition.Command, engine.action.Definition.Mode)
+		return pe.InvokeCommand(ctx, action.Command, action.Mode)
 	}
 
 	// Look up the command by its ID.
 	var command commandData
 	{
-		definition, found := engine.deployment.Commands[engine.action.Definition.Command]
+		definition, found := engine.deployment.Commands[action.Command]
 		if !found {
-			return fmt.Errorf("the \"%s\" command does not exist within the \"%s\" deployment", engine.action.Definition.Command, engine.deployment.ID)
+			return fmt.Errorf("the \"%s\" command does not exist within the \"%s\" deployment", action.Command, engine.deployment.ID)
 		}
-		command = commandData{ID: engine.action.Definition.Command, Definition: definition, Mode: engine.action.Definition.Mode}
+		command = commandData{ID: action.Command, Definition: definition, Mode: action.Mode}
 	}
 
 	// Determine whether any app changes are anticipated.
@@ -195,14 +185,14 @@ func (engine *actionEngine) invokeCommand(ctx context.Context) error {
 		if !appEvaluation.ActionsNeeded(command.Mode) {
 			// If all app installs, repairs and uninstalls are already in
 			// effect, and command invocation isn't forced, skip this command.
-			if (!engine.invocation.Force && !engine.action.Definition.Force) || command.Definition.Type.IsAppBased() {
+			if (!engine.invocation.Force && !action.Force) || command.Definition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Invocation:  engine.invocation.ID,
 					Deployment:  engine.deployment.ID,
 					Flow:        engine.flow.ID,
 					ActionIndex: engine.action.Index,
-					ActionType:  engine.action.Definition.Type,
+					ActionType:  action.Type(),
 					Command:     command.ID,
 					CommandMode: command.Mode,
 					Apps:        appEvaluation,

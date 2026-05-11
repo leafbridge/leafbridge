@@ -28,18 +28,24 @@ type fileEngine struct {
 
 // CopyFile performs a file copy operation.
 func (engine *fileEngine) CopyFile(ctx context.Context) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.CopyFileAction)
+	if !ok {
+		return fmt.Errorf("unable to copy file: the action is of type \"%s\"", engine.action.Definition.Type())
+	}
+
 	// Prepare a local file system resolver.
 	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
 
 	// Find the relevant source file within the deployment.
-	sourceFileID := engine.action.Definition.SourceFile
+	sourceFileID := action.SourceFile
 	sourceFileRef, err := resolver.ResolveFile(sourceFileID)
 	if err != nil {
 		return fmt.Errorf("source file: %w", err)
 	}
 
 	// Find the relevant destination file within the deployment.
-	destFileID := engine.action.Definition.DestinationFile
+	destFileID := action.DestinationFile
 	destFileRef, err := resolver.ResolveFile(destFileID)
 	if err != nil {
 		return fmt.Errorf("destination file: %w", err)
@@ -142,7 +148,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		Deployment:         engine.deployment.ID,
 		Flow:               engine.flow.ID,
 		ActionIndex:        engine.action.Index,
-		ActionType:         engine.action.Definition.Type,
+		ActionType:         engine.action.Definition.Type(),
 		SourceID:           sourceFileID,
 		SourcePath:         sourceFilePath,
 		DestinationID:      destFileID,
@@ -159,11 +165,17 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 
 // DeleteFile performs a file delete operation.
 func (engine *fileEngine) DeleteFile(ctx context.Context) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.DeleteFileAction)
+	if !ok {
+		return fmt.Errorf("unable to copy file: the action is of type \"%s\"", engine.action.Definition.Type())
+	}
+
 	// Prepare a local file system resolver.
 	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
 
 	// Find the relevant file within the deployment.
-	fileID := engine.action.Definition.DestinationFile
+	fileID := action.File
 	fileRef, err := resolver.ResolveFile(fileID)
 	if err != nil {
 		return fmt.Errorf("file: %w", err)
@@ -229,7 +241,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		Deployment:  engine.deployment.ID,
 		Flow:        engine.flow.ID,
 		ActionIndex: engine.action.Index,
-		ActionType:  engine.action.Definition.Type,
+		ActionType:  engine.action.Definition.Type(),
 		FileID:      fileID,
 		FilePath:    filePath,
 		FileSize:    fileSize,

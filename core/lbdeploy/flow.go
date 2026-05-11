@@ -14,7 +14,7 @@ type Flow struct {
 	Preconditions ConditionList `json:"preconditions,omitzero"`
 	Locks         []LockID      `json:"locks,omitzero"`
 	Behavior      Behavior      `json:"behavior,omitzero"`
-	Actions       []Action      `json:"actions,omitzero"`
+	Actions       ActionList    `json:"actions,omitzero"`
 }
 
 // FlowStats hold statistics about a flow that has been invoked.

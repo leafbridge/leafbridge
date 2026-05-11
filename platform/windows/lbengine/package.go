@@ -59,6 +59,12 @@ func (engine *packageEngine) PreparePackage(ctx context.Context) error {
 
 // InvokeCommand performs a package command invocation action.
 func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy.CommandID, mode lbdeploy.CommandMode) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.InvokeCommandAction)
+	if !ok {
+		return fmt.Errorf("unable to invoke command \"%s\" within the \"%s\" package: the action is of type \"%s\"", command, engine.pkg.ID, engine.action.Definition.Type())
+	}
+
 	// Find the command within the package.
 	commandDefinition, exists := engine.pkg.Definition.Commands[command]
 	if !exists {
@@ -80,14 +86,14 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 		if !appEvaluation.ActionsNeeded(mode) {
 			// If all app installs, repairs and uninstalls are already in
 			// effect, and command invocation isn't forced, skip this command.
-			if (!engine.invocation.Force && !engine.action.Definition.Force) || commandDefinition.Type.IsAppBased() {
+			if (!engine.invocation.Force && !action.Force) || commandDefinition.Type.IsAppBased() {
 				// Record that this command is being skipped.
 				engine.events.Record(lbdeployevent.CommandSkipped{
 					Invocation:  engine.invocation.ID,
 					Deployment:  engine.deployment.ID,
 					Flow:        engine.flow.ID,
 					ActionIndex: engine.action.Index,
-					ActionType:  engine.action.Definition.Type,
+					ActionType:  engine.action.Definition.Type(),
 					Package:     engine.pkg.ID,
 					Command:     command,
 					CommandMode: mode,
