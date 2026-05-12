@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -15,6 +16,14 @@ import (
 	"github.com/leafbridge/leafbridge/platform/windows/filetime"
 	"github.com/leafbridge/leafbridge/platform/windows/localfs"
 )
+
+// packageSourceFile is an interface implemented by package source files,
+// such as [stagingfs.PackgeFile] and [tempfs.ExtractedFile].
+type packageSourceFile interface {
+	Path() string
+	System() *os.File
+	Close() error
+}
 
 // fileEngine handles file system operations within a deployment.
 type fileEngine struct {
@@ -147,6 +156,133 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		ActionIndex:        engine.action.Index,
 		ActionType:         engine.action.Definition.Type(),
 		SourceID:           sourceFileID,
+		SourcePath:         sourceFilePath,
+		DestinationID:      destFileID,
+		DestinationPath:    destFilePath,
+		DestinationExisted: destFileExisted,
+		FileSize:           fileSize,
+		Started:            started,
+		Stopped:            stopped,
+		Err:                err,
+	})
+
+	return nil
+}
+
+// CopyPackageFile performs a file copy operation.
+func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSourceFile) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.CopyPackageFileAction)
+	if !ok {
+		return fmt.Errorf("unable to copy file: the action is of type \"%s\"", engine.action.Definition.Type())
+	}
+
+	// Prepare a local file system resolver.
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+
+	// Find the relevant destination file within the deployment.
+	destFileID := action.DestinationFile
+	destFileRef, err := resolver.ResolveFile(destFileID)
+	if err != nil {
+		return fmt.Errorf("destination file: %w", err)
+	}
+
+	// Make sure that the destination file is not in a protected location.
+	if destFileRef.Root.Protected {
+		return fmt.Errorf("the destination file is located in the \"%s\" root, which is protected", destFileRef.Root.ID)
+	}
+
+	// Record the time that the file copy started.
+	started := time.Now()
+
+	var (
+		sourceFilePath  string
+		destFilePath    string
+		destFileExisted bool
+		fileSize        int64
+	)
+	err = func() error {
+		// Open the root above the destination file.
+		destDir, err := localfs.OpenDir(destFileRef.Dir())
+		if err != nil {
+			return fmt.Errorf("unable to open the destination directory: %w", err)
+		}
+		defer destDir.Close()
+
+		// Record the destination path for event logging.
+		{
+			localized, err := filepath.Localize(destFileRef.FilePath)
+			if err == nil {
+				destFilePath = filepath.Join(destDir.Path(), localized)
+			}
+		}
+
+		// If there is an existing file, stop.
+		fi, err := destDir.System().Stat(destFileRef.FilePath)
+		if err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("unable to evaluate the destination file: %w", err)
+			}
+		} else if fi.Mode().IsRegular() {
+			// The file already exists.
+			//
+			// TODO: Support replacing existing files, optionally via
+			// configuration.
+			destFileExisted = true
+			return nil
+		} else {
+			return errors.New("the destination file path already exists but is not a regular file")
+		}
+
+		// Record the source path and file size for event logging.
+		sourceFilePath = source.Path()
+		sourceFile := source.System()
+		if fi, err := sourceFile.Stat(); err == nil {
+			fileSize = fi.Size()
+		}
+
+		// Open the destination file.
+		destFile, err := destDir.System().Create(destFileRef.FilePath)
+		if err != nil {
+			return err
+		}
+		defer destFile.Close()
+
+		// Seek to the start of the source file.
+		if _, err := sourceFile.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+
+		// Copy file data.
+		if _, err := io.Copy(destFile, sourceFile); err != nil {
+			return err
+		}
+
+		// Copy the file modification date.
+		sourceFileInfo, err := sourceFile.Stat()
+		if err != nil {
+			return err
+		}
+		if modTime := sourceFileInfo.ModTime(); !modTime.IsZero() {
+			if err := filetime.SetFileModificationTime(destFile, modTime); err != nil {
+				return fmt.Errorf("failed to set file modification time: %w", err)
+			}
+		}
+		return nil
+	}()
+
+	// Record the time that the file copy stopped.
+	stopped := time.Now()
+
+	// Record the file copy.
+	engine.events.Record(lbdeployevent.PackageFileCopy{
+		Invocation:         engine.invocation.ID,
+		Deployment:         engine.deployment.ID,
+		Flow:               engine.flow.ID,
+		ActionIndex:        engine.action.Index,
+		ActionType:         engine.action.Definition.Type(),
+		SourcePackage:      action.Package,
+		SourcePackageFile:  action.SourceFile,
 		SourcePath:         sourceFilePath,
 		DestinationID:      destFileID,
 		DestinationPath:    destFilePath,

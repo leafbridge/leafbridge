@@ -36,13 +36,15 @@ type ActionType string
 
 // Recognized action types.
 const (
-	ActionTypeStartFlow       ActionType = "start-flow"
-	ActionTypePreparePackage  ActionType = "prepare-package"
-	ActionTypeInvokeCommand   ActionType = "invoke-command"
-	ActionTypeCopyFile        ActionType = "copy-file"
-	ActionTypeCopyDirectory   ActionType = "copy-directory"
-	ActionTypeDeleteFile      ActionType = "delete-file"
-	ActionTypeDeleteDirectory ActionType = "delete-directory"
+	ActionTypeStartFlow            ActionType = "start-flow"
+	ActionTypePreparePackage       ActionType = "prepare-package"
+	ActionTypeInvokeCommand        ActionType = "invoke-command"
+	ActionTypeCopyPackageFile      ActionType = "copy-package-file"
+	ActionTypeCopyPackageDirectory ActionType = "copy-package-directory"
+	ActionTypeCopyFile             ActionType = "copy-file"
+	ActionTypeCopyDirectory        ActionType = "copy-directory"
+	ActionTypeDeleteFile           ActionType = "delete-file"
+	ActionTypeDeleteDirectory      ActionType = "delete-directory"
 )
 
 // Action is a common interface implemented by all LeafBridge deployment
@@ -72,6 +74,14 @@ func UnmarshalActionJSON(b []byte) (action Action, err error) {
 		action = data
 	case ActionTypeInvokeCommand:
 		var data InvokeCommandAction
+		err = json.Unmarshal(b, &data)
+		action = data
+	case ActionTypeCopyPackageFile:
+		var data CopyPackageFileAction
+		err = json.Unmarshal(b, &data)
+		action = data
+	case ActionTypeCopyPackageDirectory:
+		var data CopyPackageDirectoryAction
 		err = json.Unmarshal(b, &data)
 		action = data
 	case ActionTypeCopyFile:
@@ -164,6 +174,54 @@ func (InvokeCommandAction) Type() ActionType {
 // MarshalJSON marshals the action as JSON data.
 func (action InvokeCommandAction) MarshalJSON() ([]byte, error) {
 	type Action InvokeCommandAction
+	return json.Marshal(struct {
+		Type ActionType `json:"action"`
+		Action
+	}{
+		Type:   action.Type(),
+		Action: Action(action),
+	})
+}
+
+// CopyPackageFileAction is an action that copies a package file.
+type CopyPackageFileAction struct {
+	Package         PackageID      `json:"package"`
+	SourceFile      PackageFileID  `json:"source-file,omitempty"`
+	DestinationFile FileResourceID `json:"destination-file"`
+}
+
+// Type returns the type of the action.
+func (CopyPackageFileAction) Type() ActionType {
+	return ActionTypeCopyPackageFile
+}
+
+// MarshalJSON marshals the action as JSON data.
+func (action CopyPackageFileAction) MarshalJSON() ([]byte, error) {
+	type Action CopyPackageFileAction
+	return json.Marshal(struct {
+		Type ActionType `json:"action"`
+		Action
+	}{
+		Type:   action.Type(),
+		Action: Action(action),
+	})
+}
+
+// CopyPackageDirectoryAction is an action that copies the content of a
+// package to a directory.
+type CopyPackageDirectoryAction struct {
+	Package        PackageID           `json:"package"`
+	DestinationDir DirectoryResourceID `json:"destination-directory"`
+}
+
+// Type returns the type of the action.
+func (CopyPackageDirectoryAction) Type() ActionType {
+	return ActionTypeCopyPackageDirectory
+}
+
+// MarshalJSON marshals the action as JSON data.
+func (action CopyPackageDirectoryAction) MarshalJSON() ([]byte, error) {
+	type Action CopyPackageDirectoryAction
 	return json.Marshal(struct {
 		Type ActionType `json:"action"`
 		Action

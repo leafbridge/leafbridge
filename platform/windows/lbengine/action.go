@@ -50,6 +50,8 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 			err = engine.preparePackage(ctx, action)
 		case lbdeploy.InvokeCommandAction:
 			err = engine.invokeCommand(ctx, action)
+		case lbdeploy.CopyPackageFileAction:
+			err = engine.copyPackageFile(ctx, action)
 		case lbdeploy.CopyFileAction:
 			err = engine.copyFile(ctx)
 		case lbdeploy.DeleteFileAction:
@@ -224,6 +226,33 @@ func (engine *actionEngine) invokeCommand(ctx context.Context, action lbdeploy.I
 
 	// Invoke the command.
 	return ce.InvokeStandard(ctx)
+}
+
+// copyPackageFile performs a package file copy operation.
+func (engine *actionEngine) copyPackageFile(ctx context.Context, action lbdeploy.CopyPackageFileAction) error {
+	// Look up the package by its ID.
+	pkg, found := engine.deployment.Resources.Packages[action.Package]
+	if !found {
+		return fmt.Errorf("the \"%s\" package does not exist within the \"%s\" deployment", action.Package, engine.deployment.ID)
+	}
+
+	// Prepare a package engine.
+	pe := packageEngine{
+		invocation: engine.invocation,
+		deployment: engine.deployment,
+		flow:       engine.flow,
+		action:     engine.action,
+		pkg: packageData{
+			ID:         action.Package,
+			Definition: pkg,
+		},
+		events: engine.events,
+		output: engine.output,
+		state:  engine.state,
+	}
+
+	// Execute the package command via the package engine.
+	return pe.CopyPackageFile(ctx)
 }
 
 // copyFile performs a file copy operation.

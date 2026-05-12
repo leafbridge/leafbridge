@@ -173,6 +173,59 @@ func (engine *packageEngine) invokeAppCommand(ctx context.Context, command comma
 	return ce.InvokeApp(ctx)
 }
 
+// CopyPackageFile performs a package file copy action.
+func (engine *packageEngine) CopyPackageFile(ctx context.Context) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.CopyPackageFileAction)
+	if !ok {
+		return fmt.Errorf("unable to copy file from the \"%s\" package: the action is of type \"%s\"", engine.pkg.ID, engine.action.Definition.Type())
+	}
+
+	// Open the source file.
+	var sourceFile packageSourceFile
+	if action.SourceFile == "" {
+		// A specific source file within the package has not been identified.
+		// This implies that the source is a regular package file.
+		//
+		// Download, verify and open the source file.
+		_, packageFile, err := engine.prepareAndOpenPackage(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to copy file from the \"%s\" package: %w", engine.pkg.ID, err)
+		}
+		sourceFile = packageFile
+	} else {
+		// A specific source file within the package has been identified.
+		// This implies that the package is an archive that must be extracted.
+		//
+		// Download, verify, extract and open the source file.
+		extractedFiles, err := engine.prepareAndExtractArchivePackage(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to copy file from the \"%s\" package: %w", engine.pkg.ID, err)
+		}
+		extractedFile, err := extractedFiles.Open(string(action.SourceFile))
+		if err != nil {
+			return fmt.Errorf("unable to copy file from the \"%s\" package: %w", engine.pkg.ID, err)
+		}
+		sourceFile = extractedFile
+	}
+
+	// Always close the source file when finished.
+	defer sourceFile.Close()
+
+	// Prepare a file engine.
+	fe := fileEngine{
+		invocation: engine.invocation,
+		deployment: engine.deployment,
+		flow:       engine.flow,
+		action:     engine.action,
+		events:     engine.events,
+		state:      engine.state,
+	}
+
+	// Invoke the command.
+	return fe.CopyPackageFile(ctx, sourceFile)
+}
+
 func (engine *packageEngine) prepareAndExtractArchivePackage(ctx context.Context) (tempfs.ExtractionDir, error) {
 	// Check the state to see whether we've already downloaded, verified and
 	// extracted the files in this package.
