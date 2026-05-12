@@ -84,7 +84,7 @@ func (engine *commandEngine) InvokeStandard(ctx context.Context) error {
 func (engine *commandEngine) InvokePackage(ctx context.Context, dir stagingfs.PackageDir) error {
 	// Verify that the executable file exists within the package's staging
 	// directory.
-	fi, err := dir.Stat(engine.pkg.Definition)
+	fi, err := dir.Stat(engine.pkg.Definition.FileName())
 	if err != nil {
 		return fmt.Errorf("verification of the command executable failed: %w", err)
 	}
@@ -93,7 +93,7 @@ func (engine *commandEngine) InvokePackage(ctx context.Context, dir stagingfs.Pa
 	}
 
 	// Prepare an absolute path for the command.
-	execPath, err := dir.FilePath(engine.pkg.Definition)
+	execPath, err := dir.FilePath(engine.pkg.Definition.FileName())
 	if err != nil {
 		return fmt.Errorf("an executable file path could not be prepared for %s: %w", engine.cmdDesc(), err)
 	}

@@ -31,7 +31,7 @@ type downloadEngine struct {
 // skipped.
 //
 // If the file was partially downloaded, the download will be resumed.
-func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg packageData, file stagingfs.PackageFile) error {
+func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg packageData, destination stagingfs.PackageFile) error {
 	// Prepare a verifier for the package.
 	verifier, err := NewFileVerifier(pkg.Definition.Attributes.Hashes.Types()...)
 	if err != nil {
@@ -40,6 +40,9 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 	if len(verifier.HashTypes()) == 0 {
 		return errors.New("packages must provide at least one file hash for verification")
 	}
+
+	// Get the underlying [os.File].
+	file := destination.System()
 
 	// Move to the beginning of the file.
 	file.Seek(0, io.SeekStart)
@@ -61,8 +64,8 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 			Flow:        engine.flow.ID,
 			ActionIndex: engine.action.Index,
 			ActionType:  engine.action.Definition.Type(),
-			FileName:    file.Name,
-			Path:        file.Path,
+			FileName:    destination.Name(),
+			Path:        destination.Path(),
 			Expected:    pkg.Definition.Attributes,
 			Actual:      existingFileAttributes,
 		})
@@ -82,7 +85,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 		} else {
 			reason = lbdeployevent.ExistingFileVerificationFailed
 		}
-		if err := engine.resetFileDownload(lbdeploy.PackageSource{}, file, verifier, reason); err != nil {
+		if err := engine.resetFileDownload(lbdeploy.PackageSource{}, destination, verifier, reason); err != nil {
 			return err
 		}
 	}
@@ -99,7 +102,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 			source lbdeploy.PackageSource
 		)
 		for _, candidate := range pkg.Definition.Sources {
-			err := engine.downloadPackageFromSource(ctx, candidate, file, verifier)
+			err := engine.downloadPackageFromSource(ctx, candidate, destination, verifier)
 			if err == nil {
 				// The download completed successfully.
 				source = candidate
@@ -126,8 +129,8 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 			ActionIndex: engine.action.Index,
 			ActionType:  engine.action.Definition.Type(),
 			Source:      source,
-			FileName:    file.Name,
-			Path:        file.Path,
+			FileName:    destination.Name(),
+			Path:        destination.Path(),
 			Expected:    pkg.Definition.Attributes,
 			Actual:      downloadedFileAttributes,
 		})
@@ -142,7 +145,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 
 		// The file failed verification. Truncate it and try again.
 		if attempt == 0 {
-			if err := engine.resetFileDownload(source, file, verifier, lbdeployevent.DownloadedFileVerificationFailed); err != nil {
+			if err := engine.resetFileDownload(source, destination, verifier, lbdeployevent.DownloadedFileVerificationFailed); err != nil {
 				return err
 			}
 		}
@@ -153,10 +156,13 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 	return errors.New("the downloaded package did not pass its file verification checks")
 }
 
-func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, source lbdeploy.PackageSource, file stagingfs.PackageFile, verifier *FileVerifier) (err error) {
+func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, source lbdeploy.PackageSource, destination stagingfs.PackageFile, verifier *FileVerifier) (err error) {
 	if source.Type != lbdeploy.PackageSourceHTTP {
 		return fmt.Errorf("unrecognized package source type: %s", source.Type)
 	}
+
+	// Get the underlying [os.File].
+	file := destination.System()
 
 	// Start at an offset when resuming downloads.
 	offset := verifier.Size()
@@ -186,7 +192,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 	case http.StatusOK:
 		if offset > 0 {
 			offset = 0
-			if err := engine.resetFileDownload(source, file, verifier, lbdeployevent.HTTPServerDoesNotSupportResume); err != nil {
+			if err := engine.resetFileDownload(source, destination, verifier, lbdeployevent.HTTPServerDoesNotSupportResume); err != nil {
 				return err
 			}
 		}
@@ -205,8 +211,8 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 		ActionIndex: engine.action.Index,
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
-		FileName:    file.Name,
-		Path:        file.Path,
+		FileName:    destination.Name(),
+		Path:        destination.Path(),
 		Offset:      offset,
 	})
 
@@ -250,8 +256,8 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 		ActionIndex: engine.action.Index,
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
-		FileName:    file.Name,
-		Path:        file.Path,
+		FileName:    destination.Name(),
+		Path:        destination.Path(),
 		Downloaded:  downloaded,
 		FileSize:    offset + downloaded,
 		Started:     started,
@@ -262,7 +268,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 	return err
 }
 
-func (engine *downloadEngine) resetFileDownload(source lbdeploy.PackageSource, file stagingfs.PackageFile, verifier *FileVerifier, reason lbdeployevent.DownloadResetReason) error {
+func (engine *downloadEngine) resetFileDownload(source lbdeploy.PackageSource, destination stagingfs.PackageFile, verifier *FileVerifier, reason lbdeployevent.DownloadResetReason) error {
 	// Record the reset of the download.
 	engine.events.Record(lbdeployevent.DownloadReset{
 		Invocation:  engine.invocation.ID,
@@ -271,10 +277,13 @@ func (engine *downloadEngine) resetFileDownload(source lbdeploy.PackageSource, f
 		ActionIndex: engine.action.Index,
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
-		FileName:    file.Name,
-		Path:        file.Path,
+		FileName:    destination.Name(),
+		Path:        destination.Path(),
 		Reason:      reason,
 	})
+
+	// Get the underlying [os.File].
+	file := destination.System()
 
 	// Seek to the beginning of the file.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

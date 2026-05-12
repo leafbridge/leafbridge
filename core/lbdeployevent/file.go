@@ -153,7 +153,21 @@ func (e FileVerification) Message() string {
 // multiple lines of text. An empty string is returned when no details
 // are available.
 func (e FileVerification) Details() string {
-	return ""
+	var builder strings.Builder
+
+	fmt.Fprintf(&builder, "Expected Size: %d\nActual Size: %d", e.Expected.Size, e.Actual.Size)
+
+	for _, hash := range e.Expected.Hashes.ToList() {
+		expected := hash.Value
+		actual, ok := e.Actual.Hashes[hash.Type]
+		if ok {
+			fmt.Fprintf(&builder, "\n\nExpected %s Hash: %s\nActual %s Hash: %s", hash.Type, expected, hash.Type, actual)
+		} else {
+			fmt.Fprintf(&builder, "\n\nExpected %s Hash: %s\nActual %s Hash: Missing", hash.Type, expected, hash.Type)
+		}
+	}
+
+	return builder.String()
 }
 
 // Attrs returns a set of structured log attributes for the event.

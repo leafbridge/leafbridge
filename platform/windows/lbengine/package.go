@@ -31,30 +31,9 @@ type packageEngine struct {
 
 // preparePackage performs a package preparation action.
 func (engine *packageEngine) PreparePackage(ctx context.Context) error {
-	// Open the package file, or create it if it doesn't exist.
-	file, err := engine.openPackageFile()
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Prepare a download engine.
-	de := downloadEngine{
-		invocation: engine.invocation,
-		deployment: engine.deployment,
-		flow:       engine.flow,
-		action:     engine.action,
-		events:     engine.events,
-		state:      engine.state,
-	}
-
-	// Download and verify the package data.
-	//
-	// If the file already contains the expected data, the download will be
-	// skipped.
-	//
-	// If the file was partially downloaded, the download will be resumed.
-	return de.DownloadAndVerifyPackage(ctx, engine.pkg, file)
+	// Download and verify this package if necessary.
+	_, err := engine.preparePackage(ctx)
+	return err
 }
 
 // InvokeCommand performs a package command invocation action.
@@ -124,64 +103,10 @@ func (engine *packageEngine) InvokeCommand(ctx context.Context, command lbdeploy
 
 // invokePackageCommand runs a command on an normal package.
 func (engine *packageEngine) invokePackageCommand(ctx context.Context, command commandData, apps lbdeploy.AppEvaluation) error {
-	// Check the state to see whether we've already downloaded and verified
-	// the package file.
-	packageDir, alreadyVerified := engine.state.verifiedPackageFiles[engine.pkg.ID]
-	if !alreadyVerified {
-		// Prepare the package directory.
-		var err error
-		packageDir, err = engine.openPackageDir()
-		if err != nil {
-			return fmt.Errorf("failed to prepare package file: %w", err)
-		}
-
-		// Prepare the package file.
-		err = func() error {
-			// Open the package file, or create it if it doesn't exist.
-			packageFile, err := packageDir.OpenFile(engine.pkg.Definition)
-			if err != nil {
-				return fmt.Errorf("failed to prepare package file: %w", err)
-			}
-			defer packageFile.Close()
-
-			// Prepare a download engine.
-			de := downloadEngine{
-				invocation: engine.invocation,
-				deployment: engine.deployment,
-				flow:       engine.flow,
-				action:     engine.action,
-				events:     engine.events,
-				state:      engine.state,
-			}
-
-			// Download and verify the package data.
-			//
-			// If the file already contains the expected data, the
-			// download will be skipped.
-			//
-			// If the file was partially downloaded, the download will be
-			// resumed.
-			if err := de.DownloadAndVerifyPackage(ctx, engine.pkg, packageFile); err != nil {
-				return err
-			}
-
-			return nil
-		}()
-
-		// If the package file could not be prepared, close the package
-		// directory without adding it to the state, then return the
-		// error.
-		if err != nil {
-			packageDir.Close()
-			return err
-		}
-
-		// Add the verified package file to the engine's state, so that
-		// it will be available for other flows.
-		//
-		// This will also cause the deployment engine to close the package
-		// directory after the deployment's invocation has finished.
-		engine.state.verifiedPackageFiles[engine.pkg.ID] = packageDir
+	// Download and verify this package if necessary.
+	packageDir, err := engine.preparePackage(ctx)
+	if err != nil {
+		return err
 	}
 
 	// Prepare a command engine.
@@ -204,72 +129,10 @@ func (engine *packageEngine) invokePackageCommand(ctx context.Context, command c
 
 // invokeArchiveCommand runs a command on an archive package.
 func (engine *packageEngine) invokeArchiveCommand(ctx context.Context, command commandData, apps lbdeploy.AppEvaluation) error {
-	// Check the state to see whether we've already downloaded, verified and
-	// extracted the files in this package.
-	extractedFiles, alreadyExtracted := engine.state.extractedPackages[engine.pkg.ID]
-
-	// Download, verify and extract the package if we haven't done so already.
-	if !alreadyExtracted {
-		// Open the package file, or create it if it doesn't exist.
-		packageFile, err := engine.openPackageFile()
-		if err != nil {
-			return fmt.Errorf("failed to prepare package file: %w", err)
-		}
-		defer packageFile.Close()
-
-		// Prepare a download engine.
-		de := downloadEngine{
-			invocation: engine.invocation,
-			deployment: engine.deployment,
-			flow:       engine.flow,
-			action:     engine.action,
-			events:     engine.events,
-			state:      engine.state,
-		}
-
-		// Download and verify the package data.
-		//
-		// If the file already contains the expected data, the download will be
-		// skipped.
-		//
-		// If the file was partially downloaded, the download will be resumed.
-		if err := de.DownloadAndVerifyPackage(ctx, engine.pkg, packageFile); err != nil {
-			return err
-		}
-
-		// Create a temporary directory to hold the extracted files.
-		extractedFiles, err = tempfs.OpenExtractionDirForPackage(lbdeploy.PackageContent{
-			ID:          engine.pkg.ID,
-			PrimaryHash: engine.pkg.Definition.Attributes.Hashes.Primary(),
-		}, tempfs.Options{
-			DeleteOnClose: true,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to prepare a directory for file extraction: %w", err)
-		}
-
-		// Prepare an extraction engine.
-		ee := extractionEngine{
-			invocation: engine.invocation,
-			deployment: engine.deployment,
-			flow:       engine.flow,
-			action:     engine.action,
-			events:     engine.events,
-			state:      engine.state,
-		}
-
-		// Extract the files.
-		if err := ee.ExtractPackage(ctx, packageFile, extractedFiles); err != nil {
-			extractedFiles.Close()
-			return fmt.Errorf("extraction failed: %w", err)
-		}
-
-		// Add the extracted files to the engine's state, so that they'll be
-		// available for other flows.
-		//
-		// This will also cause the deployment engine to close the extracted
-		// files after the deployment's invocation has finished.
-		engine.state.extractedPackages[engine.pkg.ID] = extractedFiles
+	// Download, verify and extract the files in this package if necessary.
+	extractedFiles, err := engine.prepareAndExtractArchivePackage(ctx)
+	if err != nil {
+		return err
 	}
 
 	// Prepare a command engine.
@@ -310,6 +173,164 @@ func (engine *packageEngine) invokeAppCommand(ctx context.Context, command comma
 	return ce.InvokeApp(ctx)
 }
 
+func (engine *packageEngine) prepareAndExtractArchivePackage(ctx context.Context) (tempfs.ExtractionDir, error) {
+	// Check the state to see whether we've already downloaded, verified and
+	// extracted the files in this package.
+	extractedFiles, alreadyExtracted := engine.state.extractedPackages[engine.pkg.ID]
+	if alreadyExtracted {
+		return extractedFiles, nil
+	}
+
+	// Download and verify the package if we haven't done so already.
+	_, packageFile, err := engine.prepareAndOpenPackage(ctx)
+	if err != nil {
+		return tempfs.ExtractionDir{}, err
+	}
+	defer packageFile.Close()
+
+	// Create a temporary directory to hold the extracted files.
+	extractedFiles, err = tempfs.OpenExtractionDirForPackage(lbdeploy.PackageContent{
+		ID:          engine.pkg.ID,
+		PrimaryHash: engine.pkg.Definition.Attributes.Hashes.Primary(),
+	}, tempfs.Options{
+		DeleteOnClose: true,
+	})
+	if err != nil {
+		return tempfs.ExtractionDir{}, fmt.Errorf("failed to prepare a directory for file extraction: %w", err)
+	}
+
+	// Prepare an extraction engine.
+	ee := extractionEngine{
+		invocation: engine.invocation,
+		deployment: engine.deployment,
+		flow:       engine.flow,
+		action:     engine.action,
+		events:     engine.events,
+		state:      engine.state,
+	}
+
+	// Extract the files.
+	if err := ee.ExtractPackage(ctx, packageFile, extractedFiles); err != nil {
+		// If the package files could not be extracted, close the extraction
+		// directory without adding it to the state, then return the
+		// error.
+		extractedFiles.Close()
+
+		return tempfs.ExtractionDir{}, fmt.Errorf("extraction failed: %w", err)
+	}
+
+	// Add the extracted files to the engine's state, so that they'll be
+	// available for other flows.
+	//
+	// This will also cause the deployment engine to close the extracted
+	// files after the deployment's invocation has finished.
+	engine.state.extractedPackages[engine.pkg.ID] = extractedFiles
+
+	return extractedFiles, nil
+}
+
+// preparePackage will download and verify a package file. It returns an open
+// staging directory for the package.
+//
+// The returned [stagingfs.PackageDir] will be added to the engine's state,
+// and thus will be closed automatically during state cleanup. As a result,
+// the caller must not close the returned [stagingfs.PackageDir].
+func (engine *packageEngine) preparePackage(ctx context.Context) (stagingfs.PackageDir, error) {
+	// Check the state to see whether we've already downloaded and verified
+	// the package file.
+	if packageDir, alreadyVerified := engine.state.verifiedPackageFiles[engine.pkg.ID]; alreadyVerified {
+		return packageDir, nil
+	}
+
+	// Prepare the package file.
+	packageDir, packageFile, err := engine.prepareAndOpenPackage(ctx)
+	if err != nil {
+		return stagingfs.PackageDir{}, err
+	}
+
+	// Close the package file, as we won't be using it.
+	packageFile.Close()
+
+	return packageDir, nil
+}
+
+// prepareAndOpenPackage will download, verify and open a package file. It
+// returns an open staging directory and file for the package.
+//
+// The returned [stagingfs.PackageDir] will be added to the engine's state,
+// and thus will be closed automatically during state cleanup. As a result,
+// the caller must not close the returned [stagingfs.PackageDir].
+//
+// It is the caller's responsibility to close the returned
+// [stagingfs.PackageFile] when finished with it.
+func (engine *packageEngine) prepareAndOpenPackage(ctx context.Context) (stagingfs.PackageDir, stagingfs.PackageFile, error) {
+	// Check the state to see whether we've already downloaded and verified
+	// the package file.
+	if packageDir, alreadyVerified := engine.state.verifiedPackageFiles[engine.pkg.ID]; alreadyVerified {
+		packageFile, err := packageDir.OpenFile(engine.pkg.Definition.FileName())
+		if err != nil {
+			return stagingfs.PackageDir{}, stagingfs.PackageFile{}, fmt.Errorf("failed to open package file: %w", err)
+		}
+		return packageDir, packageFile, nil
+	}
+
+	// Prepare the package directory.
+	packageDir, err := engine.openPackageDir()
+	if err != nil {
+		return stagingfs.PackageDir{}, stagingfs.PackageFile{}, fmt.Errorf("failed to open package file directory: %w", err)
+	}
+
+	// Open the package file, or create it if it doesn't exist.
+	packageFile, err := packageDir.OpenFile(engine.pkg.Definition.FileName())
+	if err != nil {
+		// If the package file could not be opened, close the package
+		// directory without adding it to the state, then return the
+		// error.
+		packageDir.Close()
+
+		return stagingfs.PackageDir{}, stagingfs.PackageFile{}, fmt.Errorf("failed to open package file: %w", err)
+	}
+
+	// Prepare a download engine.
+	de := downloadEngine{
+		invocation: engine.invocation,
+		deployment: engine.deployment,
+		flow:       engine.flow,
+		action:     engine.action,
+		events:     engine.events,
+		state:      engine.state,
+	}
+
+	// Download and verify the package data.
+	//
+	// If the file already contains the expected data, the
+	// download will be skipped.
+	//
+	// If the file was partially downloaded, the download will be
+	// resumed.
+	if err := de.DownloadAndVerifyPackage(ctx, engine.pkg, packageFile); err != nil {
+		// If the package file could not be prepared, close the package
+		// file and directory without adding them to the state, then return
+		// the error.
+		packageFile.Close()
+		packageDir.Close()
+
+		return stagingfs.PackageDir{}, stagingfs.PackageFile{}, fmt.Errorf("failed to download and verify package file: %w", err)
+	}
+
+	// TODO: Consider calling the ReOpenFile API to change the file's desired
+	// access to read-only.
+
+	// Add the verified package directory to the engine's state, so that it
+	// will be available for other flows.
+	//
+	// This will also cause the deployment engine to close the package
+	// directory after the deployment's invocation has finished.
+	engine.state.verifiedPackageFiles[engine.pkg.ID] = packageDir
+
+	return packageDir, packageFile, nil
+}
+
 func (engine *packageEngine) openPackageDir() (stagingfs.PackageDir, error) {
 	// Open the deployment's staging directory.
 	deployDir, err := stagingfs.OpenDeployment(engine.deployment.ID)
@@ -319,10 +340,14 @@ func (engine *packageEngine) openPackageDir() (stagingfs.PackageDir, error) {
 	defer deployDir.Close()
 
 	// Open the package's staging directory.
-	return deployDir.OpenPackage(lbdeploy.PackageContent{
-		ID:          engine.pkg.ID,
-		PrimaryHash: engine.pkg.Definition.Attributes.Hashes.Primary(),
-	})
+	return deployDir.OpenPackage(
+		lbdeploy.PackageContent{
+			ID:          engine.pkg.ID,
+			PrimaryHash: engine.pkg.Definition.Attributes.Hashes.Primary(),
+		},
+		engine.pkg.Definition.Type,
+		engine.pkg.Definition.Format,
+	)
 }
 
 func (engine *packageEngine) openPackageFile() (stagingfs.PackageFile, error) {
@@ -334,5 +359,5 @@ func (engine *packageEngine) openPackageFile() (stagingfs.PackageFile, error) {
 	defer packageDir.Close()
 
 	// Open the package file, or create it if it doesn't exist.
-	return packageDir.OpenFile(engine.pkg.Definition)
+	return packageDir.OpenFile(engine.pkg.Definition.FileName())
 }

@@ -237,6 +237,54 @@ func (d ExtractionDir) WriteFile(path string, r io.Reader, modified time.Time) (
 	return written, err
 }
 
+// Open finds the file with the given relative path within the set of
+// extracted files and opens it.
+//
+// It is the caller's responsibility to close the extracted file when
+// finished with it.
+func (d ExtractionDir) Open(path string) (ExtractedFile, error) {
+	// Localize the file path, which ensures that it conforms to the
+	// local file system path separators and is in fact a relative path.
+	localized, err := filepath.Localize(path)
+	if err != nil {
+		return ExtractedFile{}, fmt.Errorf("localization of the file path failed: %w", err)
+	}
+
+	// If this file is in a subdirectory, open its parent.
+	dirPath, fileName := filepath.Split(localized)
+	var parent *os.Root
+	if dirPath != "" {
+		parent, err = d.dir.OpenRoot(dirPath)
+		if err != nil {
+			return ExtractedFile{}, fmt.Errorf("failed to open parent directory: %w", err)
+		}
+		defer parent.Close()
+	} else {
+		parent = d.dir
+	}
+
+	// Open the file.
+	file, err := parent.Open(fileName)
+	if err != nil {
+		return ExtractedFile{}, fmt.Errorf("failed to open extracted file: %w", err)
+	}
+
+	// Make sure the file is a regular file.
+	if fi, err := file.Stat(); err != nil {
+		defer file.Close()
+		return ExtractedFile{}, fmt.Errorf("failed to open extracted file: the file information could not be read: %w", err)
+	} else if !fi.Mode().IsRegular() {
+		defer file.Close()
+		return ExtractedFile{}, fmt.Errorf("failed to open extracted file \"%s\": the path exists but it is not a regular file", err)
+	}
+
+	return ExtractedFile{
+		name: fileName,
+		path: filepath.Join(d.path, localized),
+		file: file,
+	}, nil
+}
+
 // Close releases any file system resources consumed by the directory.
 //
 // If the directory was created with the DeleteOnClose option, calling this
@@ -255,4 +303,26 @@ func (d ExtractionDir) Close() error {
 	err3 := d.parent.Close()
 
 	return errors.Join(err1, err2, err3)
+}
+
+// ExtractedFile is an open file within a set of extracted files.
+type ExtractedFile struct {
+	name string
+	path string
+	file *os.File
+}
+
+// Path returns the absolute path to the extracted file on the local system.
+func (f ExtractedFile) Path() string {
+	return f.path
+}
+
+// System returns the underlying [os.File] for the extracted file.
+func (f ExtractedFile) System() *os.File {
+	return f.file
+}
+
+// Close releases any resources or system handles held by the extracted file.
+func (f ExtractedFile) Close() error {
+	return f.file.Close()
 }

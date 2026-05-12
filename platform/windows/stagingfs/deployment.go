@@ -74,15 +74,17 @@ func OpenDeployment(id lbdeploy.DeploymentID) (DeploymentDir, error) {
 //
 // It is the caller's responsibility to close the directory when finished
 // with it.
-func (r DeploymentDir) OpenPackage(content lbdeploy.PackageContent) (PackageDir, error) {
+func (r DeploymentDir) OpenPackage(content lbdeploy.PackageContent, kind lbdeploy.PackageType, format lbdeploy.PackageFormat) (PackageDir, error) {
 	dir, err := openOrCreateRootInRoot(r.dir, content.String(), 0755)
 	if err != nil {
 		return PackageDir{}, err
 	}
 	return PackageDir{
-		content: content,
-		path:    filepath.Join(r.path, content.String()),
-		dir:     dir,
+		content:       content,
+		packageType:   kind,
+		packageFormat: format,
+		path:          filepath.Join(r.path, content.String()),
+		dir:           dir,
 	}, nil
 }
 

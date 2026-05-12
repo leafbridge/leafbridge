@@ -29,14 +29,17 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 	// Record the time that the extraction started.
 	started := time.Now()
 
+	// Get the underlying [os.File].
+	sourceFile := source.System()
+
 	// Get the current size of the file.
-	fi, err := source.Stat()
+	fi, err := sourceFile.Stat()
 	if err != nil {
 		return err
 	}
 
 	// Prepare a ZIP file reader.
-	reader, err := zip.NewReader(source, fi.Size())
+	reader, err := zip.NewReader(sourceFile, fi.Size())
 	if err != nil {
 		return err
 	}
@@ -63,7 +66,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 		Flow:            engine.flow.ID,
 		ActionIndex:     engine.action.Index,
 		ActionType:      engine.action.Definition.Type(),
-		SourcePath:      source.Path,
+		SourcePath:      source.Path(),
 		DestinationPath: destination.Path(),
 		SourceStats:     sourceStats,
 	})
@@ -161,7 +164,7 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 		Flow:             engine.flow.ID,
 		ActionIndex:      engine.action.Index,
 		ActionType:       engine.action.Definition.Type(),
-		SourcePath:       source.Path,
+		SourcePath:       source.Path(),
 		DestinationPath:  destination.Path(),
 		SourceStats:      sourceStats,
 		DestinationStats: destinationStats,

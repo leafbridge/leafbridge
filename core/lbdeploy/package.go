@@ -28,7 +28,7 @@ type PackageContent struct {
 }
 
 // String returns a string representation of the package content in the form
-// pkg-[id]-[hash].
+// pkg-{id}-{hash}.
 func (content PackageContent) String() string {
 	out := "pkg"
 	if content.ID != "" {

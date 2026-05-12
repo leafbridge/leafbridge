@@ -118,9 +118,6 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		}
 		defer destFile.Close()
 
-		// Record the destination path for event logging.
-		sourceFilePath = sourceFile.Path()
-
 		// Copy file data.
 		if _, err := io.Copy(destFile, sourceFile.System()); err != nil {
 			return err
