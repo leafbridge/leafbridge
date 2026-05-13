@@ -21,11 +21,12 @@ type VariableSource string
 
 // Supported variable sources.
 const (
-	VariableSourceSubvariable           VariableSource = "variable"
-	VariableSourceRegistryKeyValueNames VariableSource = "resource.registry.key:value-names"
-	VariableSourceRegistryValue         VariableSource = "resource.registry.value"
-	VariableSourceFileVersion           VariableSource = "resource.file-system.file:file-version"
-	VariableSourceProductVersion        VariableSource = "resource.file-system.file:product-version"
+	VariableSourceSubvariable            VariableSource = "variable"
+	VariableSourceRegistryKeySubKeyNames VariableSource = "resource.registry.key:subkey-names"
+	VariableSourceRegistryKeyValueNames  VariableSource = "resource.registry.key:value-names"
+	VariableSourceRegistryValue          VariableSource = "resource.registry.value"
+	VariableSourceFileVersion            VariableSource = "resource.file-system.file:file-version"
+	VariableSourceProductVersion         VariableSource = "resource.file-system.file:product-version"
 )
 
 // VariableType specifies the type of a variable when it is not clear from

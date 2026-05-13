@@ -209,7 +209,7 @@ func (engine VariableEngine) evaluateSingle(id lbdeploy.VariableID, variable lbd
 				return lbvalue.Value{}, fmt.Errorf("the \"%s\" variable is not defined in the deployment", variable.Subject)
 			}
 			return engine.evaluate(candidateID, candidate, cache, seen)
-		case lbdeploy.VariableSourceRegistryKeyValueNames:
+		case lbdeploy.VariableSourceRegistryKeySubKeyNames, lbdeploy.VariableSourceRegistryKeyValueNames:
 			if variable.Type.Kind() != lbvalue.KindVersionSet {
 				return lbvalue.Value{}, fmt.Errorf("only variables of type %s are currently supported when the variable source is %s, and the variable type is %s", lbvalue.KindVersionSet, variable.Source, variable.Type.Kind())
 			}
@@ -227,7 +227,13 @@ func (engine VariableEngine) evaluateSingle(id lbdeploy.VariableID, variable lbd
 				return empty, err
 			}
 			defer key.Close()
-			names, err := key.ReadValueNames()
+			var names []string
+			switch variable.Source {
+			case lbdeploy.VariableSourceRegistryKeySubKeyNames:
+				names, err = key.ReadSubKeyNames()
+			case lbdeploy.VariableSourceRegistryKeyValueNames:
+				names, err = key.ReadValueNames()
+			}
 			if err != nil {
 				return empty, err
 			}

@@ -46,7 +46,7 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 
 	// Open the root's path relative to the predefined key. If the root does
 	// not specify a path, this will return the predefined key.
-	key, err := registry.OpenKey(predefinedKey, ref.Root.Path, access|registry.QUERY_VALUE)
+	key, err := registry.OpenKey(predefinedKey, ref.Root.Path, access|registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
 	if err != nil {
 		return Key{}, err
 	}
@@ -62,13 +62,13 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 		// Traverse down to the next descendent.
 		switch {
 		case next.Name != "":
-			key, err = registry.OpenKey(parent, next.Name, access|registry.QUERY_VALUE)
+			key, err = registry.OpenKey(parent, next.Name, access|registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
 			path = path + `\` + next.Name // Permit forward slashes
 		case next.Path != "":
 			var localized string
 			localized, err = filepath.Localize(next.Path)
 			if err == nil {
-				key, err = registry.OpenKey(parent, localized, access|registry.QUERY_VALUE)
+				key, err = registry.OpenKey(parent, localized, access|registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
 				path = filepath.Join(path, localized)
 			}
 		default:
@@ -164,6 +164,11 @@ func (key Key) GetValue(name string, kind lbvalue.Kind) (lbvalue.Value, error) {
 	default:
 		return lbvalue.Value{}, fmt.Errorf("unable to retrieve \"%s\" registry value: \"%s\" is not a regognized variable type", name, kind)
 	}
+}
+
+// ReadSubKeyNames retrieves the list of subkey names for the registry key.
+func (key Key) ReadSubKeyNames() ([]string, error) {
+	return key.key.ReadSubKeyNames(0)
 }
 
 // ReadValueNames retrieves the list of value names for the registry key.

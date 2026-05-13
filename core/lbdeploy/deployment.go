@@ -263,7 +263,7 @@ func (dep Deployment) validateVariable(variable Variable) error {
 				return fmt.Errorf("the variable references a variable ID that is not defined: %s", variable.Subject)
 			}
 			// TODO: Check for recursive variables?
-		case VariableSourceRegistryKeyValueNames:
+		case VariableSourceRegistryKeySubKeyNames, VariableSourceRegistryKeyValueNames:
 			if variable.Subject == "" {
 				return errors.New("the variable does not provide a registry key resource ID")
 			}
@@ -277,14 +277,7 @@ func (dep Deployment) validateVariable(variable Variable) error {
 			if _, found := dep.Resources.Registry.Values[RegistryValueResourceID(variable.Subject)]; !found {
 				return fmt.Errorf("the variable references a registry value resource ID that is not defined: %s", variable.Subject)
 			}
-		case VariableSourceFileVersion:
-			if variable.Subject == "" {
-				return errors.New("the variable does not provide a file resource ID")
-			}
-			if _, found := dep.Resources.FileSystem.Files[FileResourceID(variable.Subject)]; !found {
-				return fmt.Errorf("the variable references a file resource ID that is not defined: %s", variable.Subject)
-			}
-		case VariableSourceProductVersion:
+		case VariableSourceFileVersion, VariableSourceProductVersion:
 			if variable.Subject == "" {
 				return errors.New("the variable does not provide a file resource ID")
 			}
