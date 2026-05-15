@@ -423,7 +423,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					}
 
 					// Generate a registry key path.
-					path, err := ref.Path()
+					path, err := ref.PhysicalPath()
 					if err != nil {
 						fmt.Printf("      Path:        (%v)\n", err)
 						return
@@ -443,7 +443,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					defer key.Close()
 
 					// Print the path and status.
-					fmt.Printf("      Path:        %s\n", key.Path())
+					fmt.Printf("      Path:        %s\n", key.PhysicalPath())
 					fmt.Printf("      Status:      Present\n")
 				}()
 			}
@@ -470,7 +470,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					}
 
 					// Generate a registry key path.
-					path, err := ref.Key().Path()
+					path, err := ref.Key().PhysicalPath()
 					if err != nil {
 						fmt.Printf("      Key:         (%v)\n", err)
 						fmt.Printf("      Name:        %s\n", ref.Name)
@@ -492,7 +492,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					defer key.Close()
 
 					// Print the key path and value name
-					fmt.Printf("      Key:         %s\n", key.Path())
+					fmt.Printf("      Key:         %s\n", key.PhysicalPath())
 					fmt.Printf("      Name:        %s\n", ref.Name)
 
 					// Determine whether the registry value exists.

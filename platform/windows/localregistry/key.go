@@ -17,6 +17,7 @@ import (
 type Key struct {
 	key        registry.Key
 	path       string
+	view       lbdeploy.RegistryView
 	predefined bool
 }
 
@@ -94,13 +95,32 @@ func OpenKey(ref lbdeploy.RegistryKeyRef) (Key, error) {
 	return Key{
 		key:        key,
 		path:       path,
+		view:       ref.Root.View,
 		predefined: keyIsPredefined,
 	}, nil
 }
 
-// Path returns the path to the registry key on the local system.
-func (key Key) Path() string {
+// LogicalPath returns the logical path of the registry key on the local
+// system, before it has been redirected to a physical path by the
+// [Registry Redirector].
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
+func (key Key) LogicalPath() string {
 	return key.path
+}
+
+// PhysicalPath returns the physical path of the registry key on the local
+// system, after it has been redirected by the [Registry Redirector].
+//
+// This function mimics the actions of the redirector in order to generate
+// the physical path. It is not guaranteed to be accurate and should be
+// considered a best effort. See the official documentation on
+// [Shared Registry Keys] for more details.
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
+// [Shared Registry Keys]: https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys
+func (key Key) PhysicalPath() string {
+	return lbdeploy.RegistryKeyPhysicalPath(key.path, key.view)
 }
 
 // System returns the underlying [registry.Key].

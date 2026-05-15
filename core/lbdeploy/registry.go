@@ -3,6 +3,7 @@ package lbdeploy
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/leafbridge/leafbridge/core/idset"
 	"github.com/leafbridge/leafbridge/core/lbvalue"
@@ -50,8 +51,12 @@ type RegistryKeyRef struct {
 	Lineage []RegistryKeyResource
 }
 
-// Path returns the path of the registry key on the local system.
-func (ref RegistryKeyRef) Path() (string, error) {
+// LogicalPath returns the logical path of the registry key on the local
+// system, before it has been redirected to a physical path by the
+// [Registry Redirector].
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
+func (ref RegistryKeyRef) LogicalPath() (string, error) {
 	path, err := ref.Root.AbsolutePath()
 	if err != nil {
 		return "", err
@@ -73,6 +78,25 @@ func (ref RegistryKeyRef) Path() (string, error) {
 	}
 
 	return path, nil
+}
+
+// PhysicalPath returns the physical path of the registry key on the local
+// system, after it has been redirected by the [Registry Redirector].
+//
+// This function mimics the actions of the redirector in order to generate
+// the physical path. It is not guaranteed to be accurate and should be
+// considered a best effort. See the official documentation on
+// [Shared Registry Keys] for more details.
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
+// [Shared Registry Keys]: https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys
+func (ref RegistryKeyRef) PhysicalPath() (string, error) {
+	path, err := ref.LogicalPath()
+	if err != nil {
+		return "", err
+	}
+
+	return RegistryKeyPhysicalPath(path, ref.Root.View), nil
 }
 
 // RegistryKeyResourceSet holds a set of registry key resource IDs.
@@ -183,6 +207,11 @@ type RegistryRoot struct {
 
 // AbsolutePath returns the absolute path to the registry root on the
 // local system, including the predefined key.
+//
+// The returned path is a logical path before it has been redirected to
+// a physical path by the [Registry Redirector].
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
 func (root RegistryRoot) AbsolutePath() (path string, err error) {
 	path = root.PredefinedKey.String()
 	if root.Path != "" {
@@ -235,4 +264,98 @@ func (key PredefinedRegistryKey) MarshalText() ([]byte, error) {
 		return []byte(predefinedRegistryKeyStrings[key]), nil
 	}
 	return nil, fmt.Errorf("unrecognized or unsupported registry key: %d", key)
+}
+
+// RegistryKeyPhysicalPath returns the physical path of a registry key after
+// it has been redirected by the [Registry Redirector].
+//
+// This function mimics the actions of the redirector in order to generate
+// the physical path. It is not guaranteed to be accurate and should be
+// considered a best effort. See the official documentation on
+// [Shared Registry Keys] for more details.
+//
+// [Registry Redirector]: https://learn.microsoft.com/en-us/windows/win32/winprog64/registry-redirector
+// [Shared Registry Keys]: https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys
+func RegistryKeyPhysicalPath(path string, view RegistryView) string {
+	// TODO: Consider improving the efficiency of this code.
+	switch view {
+	case RegistryView32Bit:
+		// https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys
+		redirections := []struct {
+			From string
+			To   string
+		}{
+			{From: `HKEY_LOCAL_MACHINE`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Appid`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\CLSID`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Classes\CLSID`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\DirectShow`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Classes\DirectShow`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\HCP`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Interface`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Classes\Interface`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Media Type`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Classes\Media Type`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Classes\MediaFoundation`, To: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Classes\MediaFoundation`},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Clients`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\COM3`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography\Calais\Current`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography\Calais\Readers`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography\Services`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\CTF\SystemShared`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\CTF\TIP`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DFS`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Driver Signing`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\EnterpriseCertificates`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\EventSystem`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\MSMQ`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Non-Driver Signing`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Notepad\DefaultFonts`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OLE`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\RAS`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\RPC`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SOFTWARE\Microsoft\Shared Tools\MSInfo`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\TermServLicensing`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\TransactionServer`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Control Panel\Cursors\Schemes`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\KindMap`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\PreviewHandlers`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Telephony\Locations`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontDpi`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontLink`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontMapper`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontSubstitutes`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Gre_Initialize`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Language Pack`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkCards`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Perflib`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Ports`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Print`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\Policies`, To: ``},
+			{From: `HKEY_LOCAL_MACHINE\SOFTWARE\RegisteredApplications`, To: ``},
+		}
+
+		// Search the list from the end to the beginning so that we
+		// always evaluate children before their parents.
+		for i := len(redirections) - 1; i >= 0; i-- {
+			if cut, matched := strings.CutPrefix(path, redirections[i].From); matched {
+				if redirections[i].To == "" {
+					return path
+				}
+				return redirections[i].To + cut
+			}
+		}
+	}
+
+	return path
 }
