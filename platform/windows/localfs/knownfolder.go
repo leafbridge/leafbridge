@@ -17,11 +17,14 @@ type knownFolder struct {
 
 // Known folders that are recognized by their resource IDs.
 var knownFolders = knownFolderMap{
-	"common-start-menu": knownFolder{guid: windows.FOLDERID_CommonStartMenu},
-	"public-desktop":    knownFolder{guid: windows.FOLDERID_PublicDesktop},
-	"program-data":      knownFolder{guid: windows.FOLDERID_ProgramData},
-	"program-files":     knownFolder{guid: windows.FOLDERID_ProgramFiles},
-	"program-files-x86": knownFolder{guid: windows.FOLDERID_ProgramFilesX86},
-	"program-files-x64": knownFolder{guid: windows.FOLDERID_ProgramFilesX64},
-	"system":            knownFolder{guid: windows.FOLDERID_System, protected: true},
+	"common-start-menu":        knownFolder{guid: windows.FOLDERID_CommonStartMenu},
+	"public-desktop":           knownFolder{guid: windows.FOLDERID_PublicDesktop},
+	"program-data":             knownFolder{guid: windows.FOLDERID_ProgramData},
+	"program-files":            knownFolder{guid: windows.FOLDERID_ProgramFiles},
+	"program-files-common":     knownFolder{guid: windows.FOLDERID_ProgramFilesCommon},
+	"program-files-x86":        knownFolder{guid: windows.FOLDERID_ProgramFilesX86},
+	"program-files-common-x86": knownFolder{guid: windows.FOLDERID_ProgramFilesCommonX86},
+	"program-files-x64":        knownFolder{guid: windows.FOLDERID_ProgramFilesX64},
+	"program-files-common-x64": knownFolder{guid: windows.FOLDERID_ProgramFilesCommonX64},
+	"system":                   knownFolder{guid: windows.FOLDERID_System, protected: true},
 }
