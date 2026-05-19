@@ -66,8 +66,8 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 		Flow:            engine.flow.ID,
 		ActionIndex:     engine.action.Index,
 		ActionType:      engine.action.Definition.Type(),
-		SourcePath:      source.Path(),
-		DestinationPath: destination.Path(),
+		SourcePath:      source.LocalizedPath(),
+		DestinationPath: destination.LocalizedPath(),
 		SourceStats:     sourceStats,
 	})
 
@@ -164,8 +164,8 @@ func (engine *extractionEngine) ExtractPackage(ctx context.Context, source stagi
 		Flow:             engine.flow.ID,
 		ActionIndex:      engine.action.Index,
 		ActionType:       engine.action.Definition.Type(),
-		SourcePath:       source.Path(),
-		DestinationPath:  destination.Path(),
+		SourcePath:       source.LocalizedPath(),
+		DestinationPath:  destination.LocalizedPath(),
 		SourceStats:      sourceStats,
 		DestinationStats: destinationStats,
 		Started:          started,

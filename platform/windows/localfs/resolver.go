@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"slices"
 
 	"github.com/leafbridge/leafbridge/core/lbdeploy"
@@ -31,15 +32,15 @@ func (resolver *Resolver) ResolveKnownFolder(id lbdeploy.DirectoryResourceID) (l
 	}
 
 	// Ask the operating system for the known folder's path.
-	path, err := windows.KnownFolderPath(folder.guid, 0)
+	localizedPath, err := windows.KnownFolderPath(folder.guid, 0)
 	if err != nil {
 		return lbdeploy.KnownFolder{}, fmt.Errorf("the \"%s\" known folder could not be resolved: %w", id, err)
 	}
 
 	return lbdeploy.KnownFolder{
-		ID:        id,
-		Path:      path,
-		Protected: folder.protected,
+		ID:            id,
+		LocalizedPath: localizedPath,
+		Protected:     folder.protected,
 	}, nil
 }
 
@@ -75,7 +76,7 @@ func (resolver *Resolver) ResolveDirectory(id lbdeploy.DirectoryResourceID) (ref
 
 	// Keep track of the directories we traverse, which will ultimately form
 	// a lineage under the root.
-	var lineage []lbdeploy.DirectoryResource
+	var lineage []lbdeploy.ResolvedDirectoryResource
 
 	// Maintain a map of directories we've encountered, so that we can detect
 	// cycles.
@@ -84,7 +85,19 @@ func (resolver *Resolver) ResolveDirectory(id lbdeploy.DirectoryResourceID) (ref
 	// Start with the directory's location and traverse its ancestry,
 	// recording each parent along the way. Stop when we encounter a known
 	// folder.
-	lineage = append(lineage, data)
+	{
+		localizedPath, err := filepath.Localize(data.Path)
+		if err != nil {
+			return lbdeploy.DirRef{}, fmt.Errorf("failed to resolve the \"%s\" directory: the path \"%s\" cannot be localized: %w", id, data.Path, err)
+		}
+		lineage = append(lineage, lbdeploy.ResolvedDirectoryResource{
+			ID:            id,
+			Location:      data.Location,
+			Path:          data.Path,
+			LocalizedPath: localizedPath,
+			Symlink:       data.Symlink,
+		})
+	}
 	next := data.Location
 	for {
 		// Check for cycles.
@@ -93,12 +106,22 @@ func (resolver *Resolver) ResolveDirectory(id lbdeploy.DirectoryResourceID) (ref
 		}
 		seen.Add(next)
 
-		// Look for a directory with the next directory ID.
+		// Look for a parent directory with the next directory ID.
 		if parent, found := resolver.fs.Directories[next]; found {
-			lineage = append(lineage, parent)
+			localizedPath, err := filepath.Localize(parent.Path)
+			if err != nil {
+				return lbdeploy.DirRef{}, fmt.Errorf("failed to resolve the \"%s\" directory: the path \"%s\" cannot be localized: %w", next, parent.Path, err)
+			}
 			if parent.Location == "" {
 				return lbdeploy.DirRef{}, fmt.Errorf("failed to resolve the \"%s\" directory: the \"%s\" parent directory does not have a location", id, next)
 			}
+			lineage = append(lineage, lbdeploy.ResolvedDirectoryResource{
+				ID:            next,
+				Location:      parent.Location,
+				Path:          parent.Path,
+				LocalizedPath: localizedPath,
+				Symlink:       parent.Symlink,
+			})
 			next = parent.Location
 			continue
 		}
@@ -146,6 +169,12 @@ func (resolver *Resolver) ResolveFile(id lbdeploy.FileResourceID) (ref lbdeploy.
 		return lbdeploy.FileRef{}, fmt.Errorf("the \"%s\" file does not have a location", id)
 	}
 
+	// Localize the file's path within its directory.
+	localizedPath, err := filepath.Localize(data.Path)
+	if err != nil {
+		return lbdeploy.FileRef{}, fmt.Errorf("failed to resolve the \"%s\" file: the path \"%s\" cannot be localized: %w", id, data.Path, err)
+	}
+
 	// Resolve the file's parent directory.
 	dir, err := resolver.ResolveDirectory(data.Location)
 	if err != nil {
@@ -153,9 +182,13 @@ func (resolver *Resolver) ResolveFile(id lbdeploy.FileResourceID) (ref lbdeploy.
 	}
 
 	return lbdeploy.FileRef{
-		Root:     dir.Root,
-		Lineage:  dir.Lineage,
-		FileID:   id,
-		FilePath: data.Path,
+		Root:    dir.Root,
+		Lineage: dir.Lineage,
+		Resource: lbdeploy.ResolvedFileResource{
+			ID:            id,
+			Location:      data.Location,
+			Path:          data.Path,
+			LocalizedPath: localizedPath,
+		},
 	}, nil
 }

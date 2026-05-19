@@ -88,8 +88,8 @@ func (f PackageFile) Name() string {
 	return f.name
 }
 
-// Path returns the absolute path to the package file on the local system.
-func (f PackageFile) Path() string {
+// LocalizedPath returns the absolute path to the package file on the local system.
+func (f PackageFile) LocalizedPath() string {
 	return f.path
 }
 

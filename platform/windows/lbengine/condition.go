@@ -214,18 +214,14 @@ func (engine ConditionEngine) evaluate(id lbdeploy.ConditionID, condition lbdepl
 				return false, conditionSelfError(id, condition, err)
 			}
 			defer dir.Close()
-			fi, err := dir.System().Stat(ref.FilePath)
+			fi, err := dir.Stat(ref.Resource.LocalizedPath)
 			if err != nil {
 				return false, conditionSelfError(id, condition, err)
 			}
-			if fi.Mode().IsRegular() {
-				return true, nil
+			if !fi.Mode().IsRegular() {
+				return false, conditionSelfError(id, condition, fmt.Errorf("file \"%s\": the \"%s\" path exists but it is not a regular file", condition.Subject, ref.LocalizedPath()))
 			}
-			path, err := ref.Path()
-			if err != nil {
-				return false, conditionSelfError(id, condition, fmt.Errorf("file \"%s\": the path exists but it is not a regular file", condition.Subject))
-			}
-			return false, conditionSelfError(id, condition, fmt.Errorf("file \"%s\": the \"%s\" path exists but it is not a regular file", condition.Subject, path))
+			return true, nil
 		default:
 			return false, conditionSelfError(id, condition, fmt.Errorf("unrecognized condition type: %s", condition.Type))
 		}

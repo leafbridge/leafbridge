@@ -20,7 +20,7 @@ import (
 // packageSourceFile is an interface implemented by package source files,
 // such as [stagingfs.PackgeFile] and [tempfs.ExtractedFile].
 type packageSourceFile interface {
-	Path() string
+	LocalizedPath() string
 	System() *os.File
 	Close() error
 }
@@ -69,8 +69,8 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 	started := time.Now()
 
 	var (
-		sourceFilePath  string
-		destFilePath    string
+		sourceFilePath  = sourceFileRef.LocalizedPath()
+		destFilePath    = destFileRef.LocalizedPath()
 		destFileExisted bool
 		fileSize        int64
 	)
@@ -83,15 +83,10 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		defer destDir.Close()
 
 		// Record the destination path for event logging.
-		{
-			localized, err := filepath.Localize(destFileRef.FilePath)
-			if err == nil {
-				destFilePath = filepath.Join(destDir.Path(), localized)
-			}
-		}
+		destFilePath = filepath.Join(destDir.LocalizedPath(), destFileRef.Resource.LocalizedPath)
 
 		// If there is an existing file, stop.
-		fi, err := destDir.System().Stat(destFileRef.FilePath)
+		fi, err := destDir.Stat(destFileRef.Resource.LocalizedPath)
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("unable to evaluate the destination file: %w", err)
@@ -114,14 +109,18 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		}
 		defer sourceFile.Close()
 
-		// Record the source path and file size for event logging.
-		sourceFilePath = sourceFile.Path()
-		if fi, err := sourceFile.System().Stat(); err == nil {
-			fileSize = fi.Size()
+		// Retrieve information about the source file.
+		sourceFileInfo, err := sourceFile.Stat()
+		if err != nil {
+			return err
 		}
 
+		// Record the source path and file size for event logging.
+		sourceFilePath = sourceFile.LocalizedPath()
+		fileSize = sourceFileInfo.Size()
+
 		// Open the destination file.
-		destFile, err := destDir.System().Create(destFileRef.FilePath)
+		destFile, err := destDir.Create(destFileRef.Resource.LocalizedPath)
 		if err != nil {
 			return err
 		}
@@ -133,10 +132,6 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		}
 
 		// Copy the file modification date.
-		sourceFileInfo, err := sourceFile.System().Stat()
-		if err != nil {
-			return err
-		}
 		if modTime := sourceFileInfo.ModTime(); !modTime.IsZero() {
 			if err := filetime.SetFileModificationTime(destFile, modTime); err != nil {
 				return fmt.Errorf("failed to set file modification time: %w", err)
@@ -174,7 +169,7 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 	// Interpret action data.
 	action, ok := engine.action.Definition.(lbdeploy.CopyPackageFileAction)
 	if !ok {
-		return fmt.Errorf("unable to copy file: the action is of type \"%s\"", engine.action.Definition.Type())
+		return fmt.Errorf("unable to copy package file: the action is of type \"%s\"", engine.action.Definition.Type())
 	}
 
 	// Prepare a local file system resolver.
@@ -196,8 +191,8 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 	started := time.Now()
 
 	var (
-		sourceFilePath  string
-		destFilePath    string
+		sourceFilePath  = source.LocalizedPath()
+		destFilePath    = destFileRef.LocalizedPath()
 		destFileExisted bool
 		fileSize        int64
 	)
@@ -210,15 +205,10 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 		defer destDir.Close()
 
 		// Record the destination path for event logging.
-		{
-			localized, err := filepath.Localize(destFileRef.FilePath)
-			if err == nil {
-				destFilePath = filepath.Join(destDir.Path(), localized)
-			}
-		}
+		destFilePath = filepath.Join(destDir.LocalizedPath(), destFileRef.Resource.LocalizedPath)
 
 		// If there is an existing file, stop.
-		fi, err := destDir.System().Stat(destFileRef.FilePath)
+		fi, err := destDir.Stat(destFileRef.Resource.LocalizedPath)
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("unable to evaluate the destination file: %w", err)
@@ -234,15 +224,21 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 			return errors.New("the destination file path already exists but is not a regular file")
 		}
 
-		// Record the source path and file size for event logging.
-		sourceFilePath = source.Path()
+		// Get a reference to the source file.
 		sourceFile := source.System()
-		if fi, err := sourceFile.Stat(); err == nil {
-			fileSize = fi.Size()
+
+		// Retrieve information about the source file.
+		sourceFileInfo, err := sourceFile.Stat()
+		if err != nil {
+			return err
 		}
 
+		// Record the source path and file size for event logging.
+		sourceFilePath = source.LocalizedPath()
+		fileSize = sourceFileInfo.Size()
+
 		// Open the destination file.
-		destFile, err := destDir.System().Create(destFileRef.FilePath)
+		destFile, err := destDir.Create(destFileRef.Resource.LocalizedPath)
 		if err != nil {
 			return err
 		}
@@ -259,10 +255,6 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 		}
 
 		// Copy the file modification date.
-		sourceFileInfo, err := sourceFile.Stat()
-		if err != nil {
-			return err
-		}
 		if modTime := sourceFileInfo.ModTime(); !modTime.IsZero() {
 			if err := filetime.SetFileModificationTime(destFile, modTime); err != nil {
 				return fmt.Errorf("failed to set file modification time: %w", err)
@@ -296,12 +288,12 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 	return nil
 }
 
-// DeleteFile performs a file delete operation.
+// DeleteFile performs a file deletion operation.
 func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 	// Interpret action data.
 	action, ok := engine.action.Definition.(lbdeploy.DeleteFileAction)
 	if !ok {
-		return fmt.Errorf("unable to copy file: the action is of type \"%s\"", engine.action.Definition.Type())
+		return fmt.Errorf("unable to delete file: the action is of type \"%s\"", engine.action.Definition.Type())
 	}
 
 	// Prepare a local file system resolver.
@@ -323,7 +315,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 	started := time.Now()
 
 	var (
-		filePath    string
+		filePath    = fileRef.LocalizedPath()
 		fileSize    int64
 		fileExisted bool
 	)
@@ -339,16 +331,11 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		defer fileDir.Close()
 
 		// Record the file path for event logging.
-		{
-			localized, err := filepath.Localize(fileRef.FilePath)
-			if err == nil {
-				filePath = filepath.Join(fileDir.Path(), localized)
-			}
-		}
+		filePath = filepath.Join(fileDir.LocalizedPath(), fileRef.Resource.LocalizedPath)
 
 		// If there is not an existing file, or if the path points to
 		// something other than a regular file, stop.
-		fi, err := fileDir.System().Stat(fileRef.FilePath)
+		fi, err := fileDir.Stat(fileRef.Resource.LocalizedPath)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil // The file does not exist.
@@ -362,7 +349,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		fileExisted = true
 
 		// Delete the file.
-		return fileDir.System().Remove(fileRef.FilePath)
+		return fileDir.Remove(fileRef.Resource.LocalizedPath)
 	}()
 
 	// Record the time that the file deletion stopped.

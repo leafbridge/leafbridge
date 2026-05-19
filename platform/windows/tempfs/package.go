@@ -127,9 +127,9 @@ func OpenExtractionDirForPackage(pkg lbdeploy.PackageContent, opts Options) (Ext
 	}, nil
 }
 
-// Path returns the path to the extraction directory at the time of its
-// creation.
-func (d ExtractionDir) Path() string {
+// LocalizedPath returns the path to the extraction directory at the time
+// of its creation.
+func (d ExtractionDir) LocalizedPath() string {
 	return d.path
 }
 
@@ -312,8 +312,9 @@ type ExtractedFile struct {
 	file *os.File
 }
 
-// Path returns the absolute path to the extracted file on the local system.
-func (f ExtractedFile) Path() string {
+// LocalizedPath returns the absolute path to the extracted file on the
+// local system.
+func (f ExtractedFile) LocalizedPath() string {
 	return f.path
 }
 

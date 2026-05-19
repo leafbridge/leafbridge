@@ -544,17 +544,10 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 						return
 					}
 
-					// Generate a file path.
-					path, err := ref.Path()
-					if err != nil {
-						fmt.Printf("      Path:        (%v)\n", err)
-						return
-					}
-
 					// Open the parent directory.
 					dir, err := localfs.OpenDir(ref)
 					if err != nil {
-						fmt.Printf("      Path:        %s\n", path)
+						fmt.Printf("      Path:        %s\n", ref.LocalizedPath())
 						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")
 						} else {
@@ -565,7 +558,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					defer dir.Close()
 
 					// Print the path and status.
-					fmt.Printf("      Path:        %s\n", dir.Path())
+					fmt.Printf("      Path:        %s\n", dir.LocalizedPath())
 					fmt.Printf("      Status:      Present\n")
 				}()
 			}
@@ -590,13 +583,8 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 						return
 					}
 
-					// Generate a file path.
-					path, err := ref.Path()
-					if err != nil {
-						fmt.Printf("      Path:        (%v)\n", err)
-						return
-					}
-					fmt.Printf("      Path:        %s\n", path)
+					// Print the file path.
+					fmt.Printf("      Path:        %s\n", ref.LocalizedPath())
 
 					// Attempt to open the parent directory.
 					dir, err := localfs.OpenDir(ref.Dir())
@@ -611,7 +599,7 @@ func (cmd ShowResourcesCmd) Run(ctx context.Context) error {
 					defer dir.Close()
 
 					// Stat the file path.
-					fi, err := dir.System().Stat(ref.FilePath)
+					fi, err := dir.Stat(ref.Resource.LocalizedPath)
 					if err != nil {
 						if errors.Is(err, fs.ErrNotExist) {
 							fmt.Printf("      Status:      Missing\n")

@@ -62,7 +62,7 @@ func (engine *commandEngine) InvokeStandard(ctx context.Context) error {
 	defer fileDir.Close()
 
 	// Verify that the executable file exists and is a regular file.
-	fi, err := fileDir.System().Stat(fileRef.FilePath)
+	fi, err := fileDir.Stat(fileRef.Resource.LocalizedPath)
 	if err != nil {
 		return fmt.Errorf("verification of the command executable failed: %w", err)
 	}
@@ -70,14 +70,8 @@ func (engine *commandEngine) InvokeStandard(ctx context.Context) error {
 		return errors.New("verification of the command executable failed: the executable file path is not a regular file")
 	}
 
-	// Prepare an absolute path for the command.
-	localized, err := filepath.Localize(fileRef.FilePath)
-	if err != nil {
-		return fmt.Errorf("an executable file path could not be prepared for %s: %w", engine.cmdDesc(), err)
-	}
-	execPath := filepath.Join(fileDir.Path(), localized)
-
-	return engine.invokePath(ctx, execPath)
+	// Invoke the command with an absolute path to the file.
+	return engine.invokePath(ctx, fileRef.LocalizedPath())
 }
 
 // InvokePackage runs the command on a package contained in dir.
@@ -483,7 +477,7 @@ func (engine *commandEngine) workingDirectory() (path string, err error) {
 	}
 	defer dir.Close()
 
-	return dir.Path(), nil
+	return dir.LocalizedPath(), nil
 }
 
 func (engine *commandEngine) buildResult(cmdError error) (result lbdeploy.CommandResult, err error) {

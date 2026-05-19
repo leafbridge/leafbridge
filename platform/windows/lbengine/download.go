@@ -65,7 +65,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 			ActionIndex: engine.action.Index,
 			ActionType:  engine.action.Definition.Type(),
 			FileName:    destination.Name(),
-			Path:        destination.Path(),
+			Path:        destination.LocalizedPath(),
 			Expected:    pkg.Definition.Attributes,
 			Actual:      existingFileAttributes,
 		})
@@ -130,7 +130,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 			ActionType:  engine.action.Definition.Type(),
 			Source:      source,
 			FileName:    destination.Name(),
-			Path:        destination.Path(),
+			Path:        destination.LocalizedPath(),
 			Expected:    pkg.Definition.Attributes,
 			Actual:      downloadedFileAttributes,
 		})
@@ -212,7 +212,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
 		FileName:    destination.Name(),
-		Path:        destination.Path(),
+		Path:        destination.LocalizedPath(),
 		Offset:      offset,
 	})
 
@@ -257,7 +257,7 @@ func (engine *downloadEngine) downloadPackageFromSource(ctx context.Context, sou
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
 		FileName:    destination.Name(),
-		Path:        destination.Path(),
+		Path:        destination.LocalizedPath(),
 		Downloaded:  downloaded,
 		FileSize:    offset + downloaded,
 		Started:     started,
@@ -278,7 +278,7 @@ func (engine *downloadEngine) resetFileDownload(source lbdeploy.PackageSource, d
 		ActionType:  engine.action.Definition.Type(),
 		Source:      source,
 		FileName:    destination.Name(),
-		Path:        destination.Path(),
+		Path:        destination.LocalizedPath(),
 		Reason:      reason,
 	})
 

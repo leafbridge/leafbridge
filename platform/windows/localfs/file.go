@@ -18,17 +18,17 @@ type File struct {
 // OpenFile attempts to open the file identified by the given file reference.
 func OpenFile(ref lbdeploy.FileRef) (File, error) {
 	// Examine the known folder's path, which is our starting point.
-	if ref.Root.Path == "" {
+	if ref.Root.LocalizedPath == "" {
 		return File{}, errors.New("the file reference has a root with an empty path")
 	}
 
 	// Start to build up the path of the file.
-	path := ref.Root.Path
+	path := ref.Root.LocalizedPath
 
 	// Open the known folder as our first root directory.
-	root, err := os.OpenRoot(ref.Root.Path)
+	root, err := os.OpenRoot(ref.Root.LocalizedPath)
 	if err != nil {
-		return File{}, fmt.Errorf("failed to open known folder root path \"%s\": %w", ref.Root.Path, err)
+		return File{}, fmt.Errorf("failed to open known folder root path \"%s\": %w", ref.Root.LocalizedPath, err)
 	}
 	defer func() {
 		// This is an intentional late evaluation of the root variable.
@@ -42,18 +42,14 @@ func OpenFile(ref lbdeploy.FileRef) (File, error) {
 		parentPath := path
 
 		// Continue buliding up the path of the file.
-		nextPathLocalized, err := filepath.Localize(next.Path)
-		if err != nil {
-			return File{}, fmt.Errorf("failed to localize subdirectory path for \"%s\": %w", parentPath, err)
-		}
-		path = filepath.Join(path, nextPathLocalized)
+		path = filepath.Join(path, next.LocalizedPath)
 
 		// Hold a reference to the parent so that we can close it in a moment.
 		parent := root
 
 		// Lstat the next directory so that we can determine whether it is a
 		// symlink or not.
-		fi, err := parent.Lstat(nextPathLocalized)
+		fi, err := parent.Lstat(next.LocalizedPath)
 		if err != nil {
 			return File{}, fmt.Errorf("failed to examine subdirectory path \"%s\": %w", path, err)
 		}
@@ -67,7 +63,7 @@ func OpenFile(ref lbdeploy.FileRef) (File, error) {
 			}
 
 			// Traverse down to the next descendent.
-			nextRoot, err := parent.OpenRoot(nextPathLocalized)
+			nextRoot, err := parent.OpenRoot(next.LocalizedPath)
 			if err != nil {
 				return File{}, fmt.Errorf("failed to open directory \"%s\": %w", path, err)
 			}
@@ -84,7 +80,7 @@ func OpenFile(ref lbdeploy.FileRef) (File, error) {
 			}
 
 			// Read the destination.
-			destination, err := parent.Readlink(nextPathLocalized)
+			destination, err := parent.Readlink(next.LocalizedPath)
 			if err != nil {
 				return File{}, fmt.Errorf("failed to read symlink \"%s\": %w", path, err)
 			}
@@ -109,16 +105,10 @@ func OpenFile(ref lbdeploy.FileRef) (File, error) {
 	}
 
 	// Finish constrution of the file's path.
-	{
-		localized, err := filepath.Localize(ref.FilePath)
-		if err != nil {
-			return File{}, err
-		}
-		path = filepath.Join(path, localized)
-	}
+	path = filepath.Join(path, ref.Resource.LocalizedPath)
 
 	// Open the file.
-	file, err := root.Open(ref.FilePath)
+	file, err := root.Open(ref.Resource.LocalizedPath)
 	if err != nil {
 		return File{}, err
 	}
@@ -130,9 +120,15 @@ func OpenFile(ref lbdeploy.FileRef) (File, error) {
 	}, nil
 }
 
-// Path returns the path to the file on the local system.
-func (f File) Path() string {
+// LocalizedPath returns the path to the file on the local system.
+func (f File) LocalizedPath() string {
 	return f.path
+}
+
+// Stat returns the [os.FileInfo] structure describing file.
+// If there is an error, it will be of type [*os.PathError].
+func (f File) Stat() (os.FileInfo, error) {
+	return f.file.Stat()
 }
 
 // System returns the underlying [os.File] for the file.

@@ -19,7 +19,7 @@ type Dir struct {
 // reference.
 func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 	// Examine the known folder's path, which is our starting point.
-	if ref.Root.Path == "" {
+	if ref.Root.LocalizedPath == "" {
 		return Dir{}, errors.New("the directory reference has a root with an empty path")
 	}
 
@@ -28,12 +28,12 @@ func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 	success := false
 
 	// Start to build up the path of the directory.
-	path := ref.Root.Path
+	path := ref.Root.LocalizedPath
 
 	// Open the known folder as our first root directory.
-	root, err := os.OpenRoot(ref.Root.Path)
+	root, err := os.OpenRoot(ref.Root.LocalizedPath)
 	if err != nil {
-		return Dir{}, fmt.Errorf("failed to open known folder root path \"%s\": %w", ref.Root.Path, err)
+		return Dir{}, fmt.Errorf("failed to open known folder root path \"%s\": %w", ref.Root.LocalizedPath, err)
 	}
 	defer func() {
 		if !success {
@@ -48,18 +48,14 @@ func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 		parentPath := path
 
 		// Continue buliding up the path of the directory.
-		nextPathLocalized, err := filepath.Localize(next.Path)
-		if err != nil {
-			return Dir{}, fmt.Errorf("failed to localize subdirectory path for \"%s\": %w", parentPath, err)
-		}
-		path = filepath.Join(path, nextPathLocalized)
+		path = filepath.Join(path, next.LocalizedPath)
 
 		// Hold a reference to the parent so that we can close it in a moment.
 		parent := root
 
 		// Lstat the next directory so that we can determine whether it is a
 		// symlink or not.
-		fi, err := parent.Lstat(nextPathLocalized)
+		fi, err := parent.Lstat(next.LocalizedPath)
 		if err != nil {
 			return Dir{}, fmt.Errorf("failed to examine subdirectory path \"%s\": %w", path, err)
 		}
@@ -73,7 +69,7 @@ func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 			}
 
 			// Traverse down to the next descendent.
-			nextRoot, err := parent.OpenRoot(nextPathLocalized)
+			nextRoot, err := parent.OpenRoot(next.LocalizedPath)
 			if err != nil {
 				return Dir{}, fmt.Errorf("failed to open directory \"%s\": %w", path, err)
 			}
@@ -90,7 +86,7 @@ func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 			}
 
 			// Read the destination.
-			destination, err := parent.Readlink(nextPathLocalized)
+			destination, err := parent.Readlink(next.LocalizedPath)
 			if err != nil {
 				return Dir{}, fmt.Errorf("failed to read symlink \"%s\": %w", path, err)
 			}
@@ -124,9 +120,28 @@ func OpenDir(ref lbdeploy.DirRef) (Dir, error) {
 	}, nil
 }
 
-// Path returns the path to the directory on the local system.
-func (d Dir) Path() string {
+// LocalizedPath returns the absolute path to the directory on the local
+// system.
+func (d Dir) LocalizedPath() string {
 	return d.path
+}
+
+// Stat returns a [os.FileInfo] describing the named file in the directory.
+// See [os.Stat] for more details.
+func (d Dir) Stat(name string) (os.FileInfo, error) {
+	return d.root.Stat(name)
+}
+
+// Create creates or truncates the named file in the directory.
+// See [os.Create] for more details.
+func (d Dir) Create(name string) (*os.File, error) {
+	return d.root.Create(name)
+}
+
+// Remove removes the named file or (empty) directory in the directory.
+// See [os.Remove] for more details.
+func (d Dir) Remove(name string) error {
+	return d.root.Remove(name)
 }
 
 // System returns the underlying [os.Root] for the directory.

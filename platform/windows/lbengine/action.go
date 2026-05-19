@@ -271,7 +271,7 @@ func (engine *actionEngine) copyFile(ctx context.Context) error {
 	return fe.CopyFile(ctx)
 }
 
-// deleteFile performs a file delete operation.
+// deleteFile performs a file deletion operation.
 func (engine *actionEngine) deleteFile(ctx context.Context) error {
 	// Prepare a file engine.
 	fe := fileEngine{
