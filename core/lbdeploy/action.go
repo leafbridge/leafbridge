@@ -195,6 +195,18 @@ func (CopyPackageFileAction) Type() ActionType {
 	return ActionTypeCopyPackageFile
 }
 
+// SourceName returns a name describing the source in one of two forms,
+// depending on whether a source file has been specified in the action:
+//
+//  {package}
+//  {package}.{source-file}
+func (action CopyPackageFileAction) SourceName() string {
+	if action.SourceFile == "" {
+		return string(action.Package)
+	}
+	return fmt.Sprintf("%s.%s", action.Package, action.SourceFile)
+}
+
 // MarshalJSON marshals the action as JSON data.
 func (action CopyPackageFileAction) MarshalJSON() ([]byte, error) {
 	type Action CopyPackageFileAction

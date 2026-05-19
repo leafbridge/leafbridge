@@ -50,31 +50,33 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 	sourceFileID := action.SourceFile
 	sourceFileRef, err := resolver.ResolveFile(sourceFileID)
 	if err != nil {
-		return fmt.Errorf("source file: %w", err)
+		return fmt.Errorf("unable to copy file from \"%s\" to \"%s\": %w", action.SourceFile, action.DestinationFile, err)
 	}
 
 	// Find the relevant destination file within the deployment.
 	destFileID := action.DestinationFile
 	destFileRef, err := resolver.ResolveFile(destFileID)
 	if err != nil {
-		return fmt.Errorf("destination file: %w", err)
+		return fmt.Errorf("unable to copy file from \"%s\" to \"%s\": %w", action.SourceFile, action.DestinationFile, err)
 	}
 
-	// Make sure that the destination file is not in a protected location.
-	if destFileRef.Root.Protected {
-		return fmt.Errorf("the destination file is located in the \"%s\" root, which is protected", destFileRef.Root.ID)
-	}
+	// Record the expected source and destination paths for event logging.
+	sourceFilePath := sourceFileRef.LocalizedPath()
+	destFilePath := destFileRef.LocalizedPath()
 
 	// Record the time that the file copy started.
 	started := time.Now()
 
 	var (
-		sourceFilePath  = sourceFileRef.LocalizedPath()
-		destFilePath    = destFileRef.LocalizedPath()
 		destFileExisted bool
 		fileSize        int64
 	)
 	err = func() error {
+		// Make sure that the destination file is not in a protected location.
+		if destFileRef.Root.Protected {
+			return fmt.Errorf("the \"%s\" destination file is located in the \"%s\" root, which is protected", destFileID, destFileRef.Root.ID)
+		}
+
 		// Open the root above the destination file.
 		destDir, err := localfs.OpenDir(destFileRef.Dir())
 		if err != nil {
@@ -82,7 +84,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		}
 		defer destDir.Close()
 
-		// Record the destination path for event logging.
+		// Record the actual destination path for event logging.
 		destFilePath = filepath.Join(destDir.LocalizedPath(), destFileRef.Resource.LocalizedPath)
 
 		// If there is an existing file, stop.
@@ -115,7 +117,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 			return err
 		}
 
-		// Record the source path and file size for event logging.
+		// Record the actual source path and file size for event logging.
 		sourceFilePath = sourceFile.LocalizedPath()
 		fileSize = sourceFileInfo.Size()
 
@@ -161,7 +163,7 @@ func (engine *fileEngine) CopyFile(ctx context.Context) error {
 		Err:                err,
 	})
 
-	return nil
+	return err
 }
 
 // CopyPackageFile performs a file copy operation.
@@ -179,24 +181,26 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 	destFileID := action.DestinationFile
 	destFileRef, err := resolver.ResolveFile(destFileID)
 	if err != nil {
-		return fmt.Errorf("destination file: %w", err)
+		return fmt.Errorf("unable to copy package file from \"%s\" to \"%s\": %w", action.SourceName(), action.DestinationFile, err)
 	}
 
-	// Make sure that the destination file is not in a protected location.
-	if destFileRef.Root.Protected {
-		return fmt.Errorf("the destination file is located in the \"%s\" root, which is protected", destFileRef.Root.ID)
-	}
+	// Record the expected source and destination paths for event logging.
+	sourceFilePath := source.LocalizedPath()
+	destFilePath := destFileRef.LocalizedPath()
 
 	// Record the time that the file copy started.
 	started := time.Now()
 
 	var (
-		sourceFilePath  = source.LocalizedPath()
-		destFilePath    = destFileRef.LocalizedPath()
 		destFileExisted bool
 		fileSize        int64
 	)
 	err = func() error {
+		// Make sure that the destination file is not in a protected location.
+		if destFileRef.Root.Protected {
+			return fmt.Errorf("the \"%s\" destination file is located in the \"%s\" root, which is protected", destFileID, destFileRef.Root.ID)
+		}
+
 		// Open the root above the destination file.
 		destDir, err := localfs.OpenDir(destFileRef.Dir())
 		if err != nil {
@@ -204,7 +208,7 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 		}
 		defer destDir.Close()
 
-		// Record the destination path for event logging.
+		// Record the actual destination path for event logging.
 		destFilePath = filepath.Join(destDir.LocalizedPath(), destFileRef.Resource.LocalizedPath)
 
 		// If there is an existing file, stop.
@@ -233,7 +237,7 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 			return err
 		}
 
-		// Record the source path and file size for event logging.
+		// Record the actual source path and file size for event logging.
 		sourceFilePath = source.LocalizedPath()
 		fileSize = sourceFileInfo.Size()
 
@@ -285,7 +289,7 @@ func (engine *fileEngine) CopyPackageFile(ctx context.Context, source packageSou
 		Err:                err,
 	})
 
-	return nil
+	return err
 }
 
 // DeleteFile performs a file deletion operation.
@@ -303,23 +307,25 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 	fileID := action.File
 	fileRef, err := resolver.ResolveFile(fileID)
 	if err != nil {
-		return fmt.Errorf("file: %w", err)
+		return fmt.Errorf("unable to delete \"%s\" file: %w", fileID, err)
 	}
 
-	// Make sure that the file is not in a protected location.
-	if fileRef.Root.Protected {
-		return fmt.Errorf("the file is located in the \"%s\" root, which is protected", fileRef.Root.ID)
-	}
+	// Record the expected file path for event logging.
+	filePath := fileRef.LocalizedPath()
 
 	// Record the time that the file deletion started.
 	started := time.Now()
 
 	var (
-		filePath    = fileRef.LocalizedPath()
 		fileSize    int64
 		fileExisted bool
 	)
 	err = func() error {
+		// Make sure that the file is not in a protected location.
+		if fileRef.Root.Protected {
+			return fmt.Errorf("the \"%s\" file is located in the \"%s\" root, which is protected", fileID, fileRef.Root.ID)
+		}
+
 		// Open the root above the destination file.
 		fileDir, err := localfs.OpenDir(fileRef.Dir())
 		if err != nil {
@@ -330,10 +336,10 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		}
 		defer fileDir.Close()
 
-		// Record the file path for event logging.
+		// Record the actual file path for event logging.
 		filePath = filepath.Join(fileDir.LocalizedPath(), fileRef.Resource.LocalizedPath)
 
-		// If there is not an existing file, or if the path points to
+		// If there isn't an existing file, or if the path points to
 		// something other than a regular file, stop.
 		fi, err := fileDir.Stat(fileRef.Resource.LocalizedPath)
 		if err != nil {
@@ -345,7 +351,7 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 			return errors.New("the file path exists but is not a regular file")
 		}
 
-		// Record that the file exixted.
+		// Record that the file existed.
 		fileExisted = true
 
 		// Delete the file.
@@ -371,5 +377,5 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 		Err:         err,
 	})
 
-	return nil
+	return err
 }

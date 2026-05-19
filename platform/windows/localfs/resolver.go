@@ -63,12 +63,12 @@ func (resolver *Resolver) ResolveDirectory(id lbdeploy.DirectoryResourceID) (ref
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			return lbdeploy.DirRef{}, err
 		}
-		return lbdeploy.DirRef{}, fmt.Errorf("the \"%s\" directory is not defined in the deployment's resources", id)
+		return lbdeploy.DirRef{}, fmt.Errorf("failed to resolve the \"%s\" directory: the directory is not defined in the deployment's resources", id)
 	}
 
 	// Make sure the directory has a location.
 	if data.Location == "" {
-		return lbdeploy.DirRef{}, fmt.Errorf("the \"%s\" directory does not have a location", id)
+		return lbdeploy.DirRef{}, fmt.Errorf("failed to resolve the \"%s\" directory: the directory does not have a location", id)
 	}
 
 	// Successful resolution must end in a known folder.
@@ -161,12 +161,12 @@ func (resolver *Resolver) ResolveFile(id lbdeploy.FileResourceID) (ref lbdeploy.
 	// Look up the file by its ID.
 	data, exists := resolver.fs.Files[id]
 	if !exists {
-		return lbdeploy.FileRef{}, fmt.Errorf("the \"%s\" file is not defined in the deployment's resources", id)
+		return lbdeploy.FileRef{}, fmt.Errorf("failed to resolve the \"%s\" file: the file is not defined in the deployment's resources", id)
 	}
 
 	// Make sure the file has a location.
 	if data.Location == "" {
-		return lbdeploy.FileRef{}, fmt.Errorf("the \"%s\" file does not have a location", id)
+		return lbdeploy.FileRef{}, fmt.Errorf("failed to resolve the \"%s\" file: the file does not have a location", id)
 	}
 
 	// Localize the file's path within its directory.
