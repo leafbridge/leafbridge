@@ -379,3 +379,101 @@ func (engine *fileEngine) DeleteFile(ctx context.Context) error {
 
 	return err
 }
+
+// DeleteDirectory performs a directory deletion operation.
+func (engine *fileEngine) DeleteDirectory(ctx context.Context) error {
+	// Interpret action data.
+	action, ok := engine.action.Definition.(lbdeploy.DeleteDirectoryAction)
+	if !ok {
+		return fmt.Errorf("unable to delete directory: the action is of type \"%s\"", engine.action.Definition.Type())
+	}
+
+	// Prepare a local file system resolver.
+	resolver := localfs.NewResolver(engine.deployment.Resources.FileSystem)
+
+	// Find the relevant directory within the deployment.
+	dirID := action.Dir
+	dirRef, err := resolver.ResolveDirectory(dirID)
+	if err != nil {
+		return fmt.Errorf("unable to delete \"%s\" directory: %w", dirID, err)
+	}
+
+	// Record the expected directory path for event logging.
+	dirPath := dirRef.LocalizedPath()
+
+	// Record the time that the directory deletion started.
+	started := time.Now()
+
+	var (
+		dirExisted bool
+	)
+	err = func() error {
+		// Make sure that the directory is not in a protected location.
+		if dirRef.Root.Protected {
+			return fmt.Errorf("the \"%s\" directory is located in the \"%s\" root, which is protected", dirID, dirRef.Root.ID)
+		}
+
+		// Get a reference to the parent above the destination directory.
+		parentRef, err := dirRef.Parent()
+		if err != nil {
+			return err
+		}
+
+		// Get the resource for the destination directory.
+		dirResource, err := dirRef.Resource()
+		if err != nil {
+			return err
+		}
+
+		// Open the parent above the destination directory.
+		parentDir, err := localfs.OpenDir(parentRef)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil // The parent directory does not exist.
+			}
+			return fmt.Errorf("unable to open the directory's parent: %w", err)
+		}
+		defer parentDir.Close()
+
+		// Record the actual directory path for event logging.
+		dirPath = filepath.Join(parentDir.LocalizedPath(), dirResource.LocalizedPath)
+
+		// If there isn't an existing directory, or if the path points to
+		// something other than a directory, stop.
+		fi, err := parentDir.Stat(dirResource.LocalizedPath)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil // The directory does not exist.
+			}
+			return fmt.Errorf("unable to evaluate the directory to be deleted: %w", err)
+		} else if !fi.Mode().IsDir() {
+			return errors.New("the directory path exists but is not a directory")
+		}
+
+		// Record that the directory existed.
+		dirExisted = true
+
+		// Delete the directory.
+		return parentDir.Remove(dirResource.LocalizedPath)
+	}()
+
+	// Record the time that the file deletion stopped.
+	stopped := time.Now()
+
+	// Record the file deletion.
+	engine.events.Record(lbdeployevent.DirectoryDelete{
+		Invocation:       engine.invocation.ID,
+		Deployment:       engine.deployment.ID,
+		Flow:             engine.flow.ID,
+		ActionIndex:      engine.action.Index,
+		ActionType:       engine.action.Definition.Type(),
+		DirectoryID:      dirID,
+		DirectoryPath:    dirPath,
+		DirectoryExisted: dirExisted,
+		Started:          started,
+		Stopped:          stopped,
+		Err:              err,
+	})
+
+	return err
+}

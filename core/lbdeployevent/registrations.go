@@ -28,6 +28,7 @@ var Registrations = []lbevent.Registration{
 	{Type: PackageFileVerificationType, Unmarshaler: lbevent.UnmarshalRecord[PackageFileVerification]},
 	{Type: PackageFileExtractionType, Unmarshaler: lbevent.UnmarshalRecord[PackageFileExtraction]},
 	{Type: PackageFileCopyType, Unmarshaler: lbevent.UnmarshalRecord[PackageFileCopy]},
+	{Type: DirectoryDeleteType, Unmarshaler: lbevent.UnmarshalRecord[DirectoryDelete]},
 	{Type: FileCopyType, Unmarshaler: lbevent.UnmarshalRecord[FileCopy]},
 	{Type: FileDeleteType, Unmarshaler: lbevent.UnmarshalRecord[FileDelete]},
 }

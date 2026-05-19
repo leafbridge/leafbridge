@@ -13,9 +13,95 @@ import (
 
 // Deployment file event types.
 const (
-	FileCopyType   = lbevent.Type("deployment.file:copy")
-	FileDeleteType = lbevent.Type("deployment.file:delete")
+	DirectoryDeleteType = lbevent.Type("deployment.directory:delete")
+	FileCopyType        = lbevent.Type("deployment.file:copy")
+	FileDeleteType      = lbevent.Type("deployment.file:delete")
 )
+
+// DirectoryDelete is an event that occurs when a directory is deleted.
+type DirectoryDelete struct {
+	Invocation       lbdeploy.InvocationID
+	Deployment       lbdeploy.DeploymentID
+	Flow             lbdeploy.FlowID
+	ActionIndex      int
+	ActionType       lbdeploy.ActionType
+	DirectoryID      lbdeploy.DirectoryResourceID
+	DirectoryPath    string
+	DirectoryExisted bool
+	Started          time.Time
+	Stopped          time.Time
+	Err              error
+}
+
+// Type returns the type of the event.
+func (e DirectoryDelete) Type() lbevent.Type {
+	return DirectoryDeleteType
+}
+
+// Level returns the level of the event.
+func (e DirectoryDelete) Level() slog.Level {
+	if e.Err != nil {
+		return slog.LevelError
+	}
+	return slog.LevelInfo
+}
+
+// Message returns a description of the event.
+func (e DirectoryDelete) Message() string {
+	var builder structformat.Builder
+
+	duration := e.Duration().Round(time.Millisecond * 10)
+
+	builder.WritePrimary(string(e.Deployment))
+	builder.WritePrimary(string(e.Flow))
+	builder.WritePrimary(strconv.Itoa(e.ActionIndex + 1))
+	builder.WritePrimary(string(e.ActionType))
+
+	var from string
+	if e.DirectoryPath != "" {
+		from = fmt.Sprintf("%s (%s)", e.DirectoryID, e.DirectoryPath)
+	} else {
+		from = string(e.DirectoryID)
+	}
+	if e.Err != nil {
+		builder.WriteStandard(fmt.Sprintf("Deletion of directory %s failed due to an error: %s.", from, e.Err))
+	} else if e.DirectoryExisted {
+		builder.WriteStandard(fmt.Sprintf("Deletion of directory %s was completed in %s.", from, duration))
+	} else {
+		builder.WriteStandard(fmt.Sprintf("Deletion of directory %s was unnecessary as the directory did not exist.", from))
+	}
+
+	return builder.String()
+}
+
+// Details returns additional details about the event. It might include
+// multiple lines of text. An empty string is returned when no details
+// are available.
+func (e DirectoryDelete) Details() string {
+	return ""
+}
+
+// Attrs returns a set of structured log attributes for the event.
+func (e DirectoryDelete) Attrs() []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("invocation", string(e.Invocation)),
+		slog.String("deployment", string(e.Deployment)),
+		slog.String("flow", string(e.Flow)),
+		slog.Group("action", "index", e.ActionIndex, "type", e.ActionType),
+		slog.Group("directory", "id", e.DirectoryID, "path", e.DirectoryPath, "existed", e.DirectoryExisted),
+		slog.Time("started", e.Started),
+		slog.Time("stopped", e.Stopped),
+	}
+	if e.Err != nil {
+		attrs = append(attrs, slog.String("error", e.Err.Error()))
+	}
+	return attrs
+}
+
+// Duration returns the duration of the file deletion process.
+func (e DirectoryDelete) Duration() time.Duration {
+	return e.Stopped.Sub(e.Started)
+}
 
 // FileCopy is an event that occurs when a file is copied.
 type FileCopy struct {
@@ -164,11 +250,11 @@ func (e FileDelete) Message() string {
 		from = string(e.FileID)
 	}
 	if e.Err != nil {
-		builder.WriteStandard(fmt.Sprintf("Deletion of %s failed due to an error: %s.", from, e.Err))
+		builder.WriteStandard(fmt.Sprintf("Deletion of file %s failed due to an error: %s.", from, e.Err))
 	} else if e.FileExisted {
-		builder.WriteStandard(fmt.Sprintf("Deletion of %s was completed in %s (%s mbps).", from, duration, e.BitrateInMbps()))
+		builder.WriteStandard(fmt.Sprintf("Deletion of file %s was completed in %s (%s mbps).", from, duration, e.BitrateInMbps()))
 	} else {
-		builder.WriteStandard(fmt.Sprintf("Deletion of %s was unnecessary as the file did not exist.", from))
+		builder.WriteStandard(fmt.Sprintf("Deletion of file %s was unnecessary as the file did not exist.", from))
 	}
 
 	return builder.String()

@@ -56,6 +56,8 @@ func (engine *actionEngine) Invoke(ctx context.Context) error {
 			err = engine.copyFile(ctx)
 		case lbdeploy.DeleteFileAction:
 			err = engine.deleteFile(ctx)
+		case lbdeploy.DeleteDirectoryAction:
+			err = engine.deleteDirectory(ctx)
 		default:
 			err = fmt.Errorf("unrecognized deployment action type \"%s\"", engine.action.Definition.Type())
 		}
@@ -285,4 +287,20 @@ func (engine *actionEngine) deleteFile(ctx context.Context) error {
 
 	// Execute the delete-file action via the file engine.
 	return fe.DeleteFile(ctx)
+}
+
+// deleteDirectory performs a directory deletion operation.
+func (engine *actionEngine) deleteDirectory(ctx context.Context) error {
+	// Prepare a file engine.
+	fe := fileEngine{
+		invocation: engine.invocation,
+		deployment: engine.deployment,
+		flow:       engine.flow,
+		action:     engine.action,
+		events:     engine.events,
+		state:      engine.state,
+	}
+
+	// Execute the delete-directory action via the file engine.
+	return fe.DeleteDirectory(ctx)
 }
