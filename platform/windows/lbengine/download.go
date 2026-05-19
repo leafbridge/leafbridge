@@ -58,7 +58,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 	// download and go immediately to the verification process.
 	if existingFileAttributes := verifier.State(); existingFileAttributes.Size >= pkg.Definition.Attributes.Size {
 		// Record the file verification result.
-		engine.events.Record(lbdeployevent.FileVerification{
+		engine.events.Record(lbdeployevent.PackageFileVerification{
 			Invocation:  engine.invocation.ID,
 			Deployment:  engine.deployment.ID,
 			Flow:        engine.flow.ID,
@@ -122,7 +122,7 @@ func (engine *downloadEngine) DownloadAndVerifyPackage(ctx context.Context, pkg 
 		downloadedFileAttributes := verifier.State()
 
 		// Record the file verification result.
-		engine.events.Record(lbdeployevent.FileVerification{
+		engine.events.Record(lbdeployevent.PackageFileVerification{
 			Invocation:  engine.invocation.ID,
 			Deployment:  engine.deployment.ID,
 			Flow:        engine.flow.ID,
