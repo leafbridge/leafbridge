@@ -144,6 +144,12 @@ func (d Dir) Remove(name string) error {
 	return d.root.Remove(name)
 }
 
+// RemoveAll removes the named file or directory and any children that it
+// contains. See [os.RemoveAll] for more details.
+func (d Dir) RemoveAll(name string) error {
+	return d.root.RemoveAll(name)
+}
+
 // System returns the underlying [os.Root] for the directory.
 func (d Dir) System() *os.Root {
 	return d.root

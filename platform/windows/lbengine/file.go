@@ -453,7 +453,14 @@ func (engine *fileEngine) DeleteDirectory(ctx context.Context) error {
 		// Record that the directory existed.
 		dirExisted = true
 
+		// TODO: Enumerate the directory and all of its descendents, then
+		// record the total number of descendent folders and files in the
+		// event.
+
 		// Delete the directory.
+		if action.DeleteNonEmpty {
+			return parentDir.RemoveAll(dirResource.LocalizedPath)
+		}
 		return parentDir.Remove(dirResource.LocalizedPath)
 	}()
 

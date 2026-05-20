@@ -313,7 +313,8 @@ func (action DeleteFileAction) MarshalJSON() ([]byte, error) {
 
 // DeleteDirectoryAction is an action that deletes a file.
 type DeleteDirectoryAction struct {
-	Dir DirectoryResourceID `json:"directory"`
+	Dir            DirectoryResourceID `json:"directory"`
+	DeleteNonEmpty bool                `json:"delete-non-empty"`
 }
 
 // Type returns the type of the action.
